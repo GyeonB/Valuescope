@@ -1,0 +1,1150 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ValueScope — 가치투자 실적 분석 대시보드</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0f1117;--card:#1a1f2e;--border:#1e2a3a;--text:#e2e8f0;--muted:#64748b;--accent:#3b82f6;--up:#22c55e;--dn:#ef4444;--warn:#f59e0b;--font:'IBM Plex Sans',sans-serif;--mono:'IBM Plex Mono',monospace}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+::-webkit-scrollbar{width:0;height:0}
+*{scrollbar-width:none;-ms-overflow-style:none}
+.vs{max-width:960px;margin:0 auto;padding:16px}
+.top-bar{display:flex;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap}
+.logo{font-family:var(--mono);font-size:17px;font-weight:500;color:var(--accent);letter-spacing:.05em}
+.select-wrap{position:relative;flex:1;max-width:300px}
+.select-wrap select{width:100%;padding:8px 32px 8px 12px;background:#1a1f2e;border:1px solid var(--border);color:var(--text);font-size:13px;font-family:var(--font);border-radius:6px;cursor:pointer;outline:none;appearance:none;-webkit-appearance:none}
+.select-wrap::after{content:'▾';position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--muted);pointer-events:none}
+.stock-info{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.stock-name{font-size:18px;font-weight:600}
+.stock-meta{font-size:11px;color:var(--muted);font-family:var(--mono)}
+.tag{font-size:9px;padding:3px 9px;border-radius:20px;font-weight:500}
+.kpi-row{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;margin-bottom:12px}
+.kc{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:9px 11px}
+.kc-l{font-size:9px;color:var(--muted);margin-bottom:3px;font-family:var(--mono)}
+.kc-v{font-size:15px;font-weight:600;font-family:var(--mono)}
+.kc-s{font-size:9px;margin-top:2px;font-family:var(--mono)}
+.up{color:var(--up)}.dn{color:var(--dn)}.nt{color:var(--warn)}
+.tabs{display:flex;border-bottom:1px solid var(--border);margin-bottom:14px;overflow-x:auto;gap:0}
+.tab{font-size:11px;padding:9px 16px;border:none;background:transparent;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;font-family:var(--font);white-space:nowrap;transition:all .15s}
+.tab:hover{color:var(--text)}
+.tab.on{color:var(--accent);border-bottom-color:var(--accent);font-weight:500}
+.panel{display:none}.panel.on{display:block}
+.sec{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;font-family:var(--mono)}
+.cbrow{display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap}
+.cb{font-size:10px;padding:4px 11px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;font-family:var(--font);transition:all .15s}
+.cb:hover{color:var(--text)}.cb.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.leg{display:flex;gap:14px;margin-bottom:6px;flex-wrap:wrap}
+.leg span{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--muted)}
+.lsq{width:8px;height:8px;border-radius:2px;flex-shrink:0}
+.lcl{width:16px;height:2px;flex-shrink:0}
+.cw{position:relative;width:100%}
+.h200{height:200px}.h160{height:160px}.h140{height:140px}.h120{height:120px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:11px 13px}
+.div{height:1px;background:var(--border);margin:12px 0}
+.tl-item{display:grid;grid-template-columns:56px 1fr;gap:8px;padding:9px 0;border-bottom:1px solid var(--border)}
+.tl-item:last-child{border-bottom:none}
+.tl-q{font-size:10px;color:var(--muted);font-family:var(--mono);padding-top:2px}
+.tl-tags{display:flex;gap:4px;margin-bottom:4px;align-items:center;flex-wrap:wrap}
+.tltag{font-size:9px;padding:2px 7px;border-radius:20px;font-weight:500}
+.tc{background:#1e3a5f;color:#7dd3fc}.tp{background:#422006;color:#fcd34d}
+.tmk{background:#14532d;color:#86efac}.to{background:#1e293b;color:#94a3b8}
+.wdot{width:6px;height:6px;border-radius:50%;background:var(--dn);flex-shrink:0}
+.tl-text{font-size:11px;color:#94a3b8;line-height:1.6;margin-bottom:4px}
+.tl-nums{display:flex;gap:10px;flex-wrap:wrap}
+.tl-n{font-size:10px;color:var(--muted);font-family:var(--mono)}
+.tl-n b{color:var(--text);font-weight:500}
+.tl-n .up{color:var(--up)}.tl-n .dn{color:var(--dn)}.tl-n .nt{color:var(--warn)}
+.oneoff{background:#2d1a06;border:1px solid #92400e;border-radius:4px;padding:5px 9px;font-size:9px;color:#fcd34d;margin-top:5px}
+.wf-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:11px}
+.wf-row:last-child{border-bottom:none;font-weight:600}
+.wf-k{color:#94a3b8;display:flex;align-items:center;gap:8px}
+.wf-bar{height:6px;border-radius:3px;min-width:4px}
+.wf-v{font-family:var(--mono);font-weight:500}
+.is-row{display:flex;align-items:center;gap:10px;padding:5px 0;border-bottom:1px solid var(--border)}
+.is-row:last-child{border-bottom:none}
+.is-main{background:rgba(255,255,255,0.02);border-radius:4px;padding:6px 4px;margin:2px 0}
+.is-label{font-size:11px;color:#94a3b8;min-width:220px}
+.is-bar-wrap{flex:1}
+.is-bar{height:8px;border-radius:4px}
+.is-val{font-size:11px;font-family:var(--mono);font-weight:500;min-width:120px;text-align:right}
+.is-margin{font-size:9px;color:var(--muted);font-weight:400}
+.sm-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:11px}
+.sm-row:last-child{border-bottom:none}
+.sm-k{color:#94a3b8}.sm-v{font-family:var(--mono);font-weight:500}.sm-s{font-size:9px;color:var(--muted)}
+.gd-row{display:flex;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:11px;gap:8px}
+.gd-row:last-child{border-bottom:none}
+.gd-q{font-family:var(--mono);color:var(--muted);font-size:10px;min-width:56px}
+.gd-bw{flex:1;background:#0a0d14;border-radius:3px;height:5px;overflow:hidden}
+.gd-b{height:100%;border-radius:3px}
+.pbox{border:1px solid var(--border);border-radius:6px;padding:11px 13px;margin-top:10px;font-size:11px;font-weight:500}
+.gloss{background:#0a0d14;border:1px solid var(--border);border-radius:8px;padding:13px 15px;margin-top:16px}
+.gloss-t{font-size:10px;color:var(--accent);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px;font-family:var(--mono)}
+.gloss-g{display:grid;grid-template-columns:1fr 1fr;gap:0 20px}
+.gl{padding:5px 0;border-bottom:1px solid #1e2a3a}
+.gl:nth-last-child(-n+2){border-bottom:none}
+.gl-t{font-size:10px;font-weight:600;color:var(--accent);font-family:var(--mono)}
+.gl-d{font-size:10px;color:#94a3b8;line-height:1.5;margin-top:1px}
+.unique-card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:11px 13px}
+.unique-chart{width:100%;height:120px;position:relative}
+</style>
+</head>
+<body>
+<div class="vs">
+<div class="top-bar">
+  <div class="logo">ValueScope</div>
+  <div class="select-wrap">
+    <select id="sel" onchange="onSelect(this.value)">
+      <option value="TSLA">테슬라 (TSLA)</option>
+      <option value="NVDA">엔비디아 (NVDA)</option>
+      <option value="AAPL">애플 (AAPL)</option>
+      <option value="PLTR">팔란티어 (PLTR)</option>
+      <option value="MSFT">마이크로소프트 (MSFT)</option>
+      <option value="GOOGL">알파벳 구글 (GOOGL)</option>
+      <option value="META">메타 플랫폼스 (META)</option>
+      <option value="AMZN">아마존 (AMZN)</option>
+      <option value="IONQ">아이온큐 (IONQ)</option>
+      <option value="AMD">AMD</option>
+      <option value="NFLX">넷플릭스 (NFLX)</option>
+      <option value="INTC">인텔 (INTC)</option>
+      <option value="SNOW">스노우플레이크 (SNOW)</option>
+      <option value="SHOP">쇼피파이 (SHOP)</option>
+      <option value="SMCI">슈퍼마이크로 (SMCI)</option>
+    </select>
+  </div>
+</div>
+<div class="stock-info">
+  <span class="stock-name" id="sName"></span>
+  <span class="stock-meta" id="sMeta"></span>
+  <span class="tag" id="sTag"></span>
+  <span class="tag" id="sModel" style="background:#1e293b;color:#94a3b8"></span>
+</div>
+<div class="kpi-row" id="kpiRow"></div>
+<div class="tabs" id="tabBar">
+  <button class="tab on" data-idx="0">① 개요</button>
+  <button class="tab" data-idx="1">② 매출 해부</button>
+  <button class="tab" data-idx="2">③ 비용·희석</button>
+  <button class="tab" data-idx="3">④ 현금흐름</button>
+  <button class="tab" data-idx="4">⑤ 미래·섹터</button>
+  <button class="tab" data-idx="5">⑥ 경영진 신뢰도</button>
+</div>
+
+<!-- TAB 0 -->
+<div class="panel on" id="p0">
+  <div class="cbrow">
+    <button class="cb on" data-m="rev">매출</button>
+    <button class="cb" data-m="eps_gaap">EPS GAAP</button>
+    <button class="cb" data-m="eps_ng">EPS Non-GAAP</button>
+    <button class="cb" data-m="fcf">FCF</button>
+    <button class="cb" data-m="eps">EPS</button>
+    <button class="cb" data-m="opm">영업이익률</button>
+  </div>
+  <div class="leg">
+    <span><span class="lsq" style="background:#22c55e"></span>YoY +20%↑ 강한 성장</span>
+    <span><span class="lsq" style="background:#3b82f6"></span>YoY 0~20% 성장</span>
+    <span><span class="lsq" style="background:#ef4444"></span>YoY 마이너스 역성장</span>
+    <span><span class="lcl" style="background:#f59e0b"></span>YoY 성장률 (우측 축)</span>
+    <span><span class="lcl" style="background:#e2e8f0"></span>가이던스 (점선)</span>
+  </div>
+  <div class="cw h200"><canvas id="c_main"></canvas></div>
+  <div class="div"></div>
+  <div class="sec">분기별 사건 맥락 타임라인</div>
+  <div id="tl"></div>
+  <div class="gloss">
+    <div class="gloss-t">📖 이 탭 용어 설명</div>
+    <div class="gloss-g">
+      <div class="gl"><div class="gl-t">YoY (Year over Year)</div><div class="gl-d">전년 동기 대비 성장률. 계절성을 제거하고 실질 성장을 보여줘요.</div></div>
+      <div class="gl"><div class="gl-t">EPS GAAP (주당순이익 공식)</div><div class="gl-d">미국 공식 회계 기준으로 계산한 주당순이익. SBC·일회성 비용이 모두 포함된 공식 수치예요.</div></div>
+      <div class="gl"><div class="gl-t">EPS Non-GAAP (주당순이익 조정)</div><div class="gl-d">SBC·일회성 비용 등을 제거한 조정 주당순이익. 기업이 "우리 실제 수익력은 이만큼"이라고 주장하는 수치예요. GAAP보다 항상 높게 나와요.</div></div>
+      <div class="gl"><div class="gl-t">FCF (Free Cash Flow)</div><div class="gl-d">잉여현금흐름. 영업으로 번 돈에서 필수 투자비를 뺀 진짜 자유 현금이에요.</div></div>
+      <div class="gl"><div class="gl-t">OPM (영업이익률)</div><div class="gl-d">매출 대비 영업이익 비율. 본업에서 얼마나 효율적으로 돈을 버는지 보여줘요.</div></div>
+      <div class="gl"><div class="gl-t">가이던스 (Guidance)</div><div class="gl-d">경영진이 다음 분기에 달성할 것으로 예상한다고 공식 발표하는 목표 수치예요.</div></div>
+      <div class="gl"><div class="gl-t">일회성 비용/이익</div><div class="gl-d">이번 분기에만 특별히 발생한 비용이나 이익. 다음 분기엔 없을 항목이에요. ⚠️ 표시로 구분해요.</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- TAB 1 -->
+<div class="panel" id="p1">
+  <div class="g2">
+    <div class="card"><div class="sec">부문별 매출 비중 (최근 분기)</div><div class="cw h160"><canvas id="c_donut"></canvas></div><div class="leg" id="donutLeg" style="margin-top:6px"></div></div>
+    <div class="card"><div class="sec">부문별 매출 추이 (분기별)</div><div class="cw h160"><canvas id="c_seg"></canvas></div></div>
+  </div>
+  <div class="div"></div>
+  <div class="g2">
+    <div class="card"><div class="sec">지역별 매출 (최근 분기)</div><div class="cw h120"><canvas id="c_geo"></canvas></div></div>
+    <div class="unique-card"><div class="sec" id="uniqueTitle">기업 고유 지표</div><div class="unique-chart"><canvas id="c_unique"></canvas></div><div id="uniqueNote" style="font-size:9px;color:var(--muted);margin-top:4px"></div></div>
+  </div>
+  <div class="gloss">
+    <div class="gloss-t">📖 이 탭 용어 설명</div>
+    <div class="gloss-g">
+      <div class="gl"><div class="gl-t">부문별 매출 (Revenue by Segment)</div><div class="gl-d">기업의 사업 영역별로 나눈 매출. 어느 사업이 진짜 돈을 버는지 파악할 수 있어요.</div></div>
+      <div class="gl"><div class="gl-t">지역별 매출 (Revenue by Geography)</div><div class="gl-d">어느 나라·지역에서 매출이 나오는지. 글로벌 확장세와 환율 착시를 구분할 수 있어요.</div></div>
+      <div class="gl"><div class="gl-t">구독/반복 매출 (Recurring Revenue)</div><div class="gl-d">매달 꼬박꼬박 들어오는 안정적인 수익. 비중이 높을수록 미래 매출 예측이 쉬워요.</div></div>
+      <div class="gl"><div class="gl-t">일회성 매출 (Non-recurring Revenue)</div><div class="gl-d">특정 프로젝트로 한 번만 발생하는 수익. 다음 분기에는 없을 수도 있어요.</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- TAB 2 -->
+<div class="panel" id="p2">
+  <div class="g2" style="margin-bottom:8px">
+    <div class="card"><div class="sec">세부 영업비용 추이 (금액)</div><div class="cw h140"><canvas id="c_opex"></canvas></div></div>
+    <div class="card"><div class="sec">매출 대비 비용 비중 (%)</div><div class="cw h140"><canvas id="c_costpct"></canvas></div></div>
+  </div>
+  <div class="g2" style="margin-bottom:8px">
+    <div class="card"><div class="sec">SBC (주식보상비용) 추이</div><div class="cw h120"><canvas id="c_sbc"></canvas></div></div>
+    <div class="card"><div class="sec">주주 희석 — 발행주식수 변화</div><div class="cw h120"><canvas id="c_shares"></canvas></div></div>
+  </div>
+  <div class="div"></div>
+  <div class="card" style="margin-bottom:8px">
+    <div class="sec">손익계산서 분해 (최근 분기) — 매출에서 각 비용이 빠지는 과정</div>
+    <div id="incomeStatement"></div>
+  </div>
+  <div class="card" style="border-color:#3b82f6">
+    <div class="sec" style="color:#3b82f6">⭐ GAAP → Non-GAAP 브릿지 — 기업이 실적을 어떻게 포장하는가</div>
+    <div id="bridge" style="margin-top:6px"></div>
+    <div style="margin-top:10px;padding:8px 10px;background:#0a0d14;border-radius:6px;font-size:10px;color:#64748b;line-height:1.6">💡 기업들은 SBC·일회성 비용 등을 빼고 <span style="color:#22c55e;font-weight:500">Non-GAAP 이익</span>을 발표해요. 위 항목들이 얼마나 제거됐는지 확인하면 기업이 실적을 어떻게 포장하는지 알 수 있어요.</div>
+  </div>
+  <div class="gloss">
+    <div class="gloss-t">📖 이 탭 용어 설명</div>
+    <div class="gloss-g">
+      <div class="gl"><div class="gl-t">R&D (연구개발비)</div><div class="gl-d">미래 성장을 위한 투자 규모예요. 매출 대비 비중이 높을수록 미래에 적극 투자하는 기업이에요.</div></div>
+      <div class="gl"><div class="gl-t">S&M (영업·마케팅비)</div><div class="gl-d">고객 1명을 확보하는 데 얼마나 쓰는지 파악할 수 있어요. 효율적일수록 매출 성장이 빨라요.</div></div>
+      <div class="gl"><div class="gl-t">SG&A (판매관리비)</div><div class="gl-d">회사를 유지하는 기본 비용. 임원 급여, 임대료, 법무비 등이 포함돼요.</div></div>
+      <div class="gl"><div class="gl-t">GAAP vs Non-GAAP</div><div class="gl-d">GAAP은 공식 회계 기준 이익, Non-GAAP은 SBC·일회성 비용을 제거한 조정 이익이에요.</div></div>
+      <div class="gl"><div class="gl-t">SBC (주식보상비용)</div><div class="gl-d">직원에게 주는 주식 보상. 현금은 안 나가지만 기존 주주의 지분을 희석시켜요.</div></div>
+      <div class="gl"><div class="gl-t">주주 희석 (Dilution)</div><div class="gl-d">SBC로 주식수가 늘면 같은 이익을 더 많은 주식이 나눠 가져요. 주당 가치가 줄어드는 효과예요.</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- TAB 3 -->
+<div class="panel" id="p3">
+  <div class="card" style="margin-bottom:8px">
+    <div class="sec">FCF / 영업현금흐름 (좌측) vs CapEx (우측 축·점선)</div>
+    <div class="leg">
+      <span><span class="lsq" style="background:#3b82f6"></span>영업현금흐름 (좌측)</span>
+      <span><span class="lsq" style="background:#22c55e"></span>FCF (좌측)</span>
+      <span><span class="lcl" style="background:#f59e0b"></span>CapEx 점선 (우측 축)</span>
+    </div>
+    <div class="cw h140"><canvas id="c_cf"></canvas></div>
+  </div>
+  <div class="g2">
+    <div class="card"><div class="sec">FCF 마진 추이 (점선: 20% 기준)</div><div class="cw h120"><canvas id="c_fcfm"></canvas></div></div>
+    <div class="card"><div class="sec">순이익 vs FCF 비교</div><div class="cw h120"><canvas id="c_nivsfcf"></canvas></div></div>
+  </div>
+  <div class="gloss">
+    <div class="gloss-t">📖 이 탭 용어 설명</div>
+    <div class="gloss-g">
+      <div class="gl"><div class="gl-t">FCF (잉여현금흐름)</div><div class="gl-d">영업으로 번 돈에서 필수 설비 투자비를 뺀, 진짜 마음대로 쓸 수 있는 돈이에요.</div></div>
+      <div class="gl"><div class="gl-t">영업현금흐름</div><div class="gl-d">본업에서 실제로 들어온 현금. 순이익은 회계 숫자지만 이건 진짜 통장에 꽂힌 돈이에요.</div></div>
+      <div class="gl"><div class="gl-t">CapEx (자본적 지출)</div><div class="gl-d">공장·서버·장비 등에 쓰는 투자 비용. 성장 투자인지 낡은 설비 교체인지 구분이 중요해요.</div></div>
+      <div class="gl"><div class="gl-t">FCF 마진</div><div class="gl-d">매출 대비 FCF 비율. 20% 이상이면 스스로 자생 가능한 기업으로 봐요.</div></div>
+      <div class="gl"><div class="gl-t">순이익 vs FCF 괴리</div><div class="gl-d">순이익은 좋은데 FCF가 낮으면 회계상 이익이지만 실제 현금은 없다는 뜻이에요.</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- TAB 4 -->
+<div class="panel" id="p4">
+  <div class="g3" id="leadCards" style="margin-bottom:8px"></div>
+  <div class="div"></div>
+  <div class="card">
+    <div class="sec">섹터 특수 지표 <span style="font-size:9px;color:var(--muted);margin-left:6px">※ 각 기업 Earnings Release 공식 발표 기준</span></div>
+    <div id="sectMet"></div>
+  </div>
+  <div class="gloss">
+    <div class="gloss-t">📖 이 탭 용어 설명</div>
+    <div class="gloss-g">
+      <div class="gl"><div class="gl-t">RPO (잔여수행의무)</div><div class="gl-d">계약은 맺었지만 아직 매출로 인식 안 된 미래 확정 금액. 클수록 다음 분기가 보장된 것이에요.</div></div>
+      <div class="gl"><div class="gl-t">Billings (청구액)</div><div class="gl-d">이번 분기에 고객에게 청구서를 보낸 금액. 매출보다 먼저 움직이는 선행 신호예요.</div></div>
+      <div class="gl"><div class="gl-t">이연수익 (Deferred Revenue)</div><div class="gl-d">이미 돈을 받았지만 서비스를 아직 다 제공 안 해 매출로 인식 못 한 선불금이에요.</div></div>
+      <div class="gl"><div class="gl-t">NDR (순매출유지율)</div><div class="gl-d">기존 고객이 작년보다 올해 얼마나 더 쓰는지. 100% 초과면 기존 고객이 스스로 지출을 늘리는 것이에요.</div></div>
+      <div class="gl"><div class="gl-t">Rule of 40</div><div class="gl-d">매출 성장률 + 영업이익률의 합이 40 이상이면 균형 잡힌 성장으로 봐요.</div></div>
+      <div class="gl"><div class="gl-t">DAU / MAU</div><div class="gl-d">일간/월간 활성 사용자. 하루 또는 한 달 동안 실제로 서비스를 사용한 사람 수예요.</div></div>
+      <div class="gl"><div class="gl-t">GMV (총상품거래액)</div><div class="gl-d">플랫폼에서 거래된 전체 금액. 플랫폼 성장 규모를 보는 핵심 지표예요.</div></div>
+      <div class="gl"><div class="gl-t">ARPU (유저당 평균 매출)</div><div class="gl-d">사용자 1명이 얼마의 매출을 발생시키는지 보여줘요.</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- TAB 5 -->
+<div class="panel" id="p5">
+  <div class="card" style="margin-bottom:8px">
+    <div class="sec">가이던스 vs 실제 달성 히스토리</div>
+    <div class="leg">
+      <span><span class="lsq" style="background:#3b82f6"></span>가이던스 경영진 예고</span>
+      <span><span class="lsq" style="background:#22c55e"></span>실제 달성 상회</span>
+      <span><span class="lsq" style="background:#ef4444"></span>실제 달성 하회</span>
+    </div>
+    <div class="cw h160"><canvas id="c_guid"></canvas></div>
+  </div>
+  <div class="sec">분기별 달성률</div>
+  <div id="gdRows"></div>
+  <div class="pbox" id="pbox"></div>
+  <div class="gloss">
+    <div class="gloss-t">📖 이 탭 용어 설명</div>
+    <div class="gloss-g">
+      <div class="gl"><div class="gl-t">가이던스 (Guidance)</div><div class="gl-d">경영진이 다음 분기에 달성할 것으로 예상한다고 공식 발표하는 목표 수치예요.</div></div>
+      <div class="gl"><div class="gl-t">어닝 서프라이즈</div><div class="gl-d">실제 실적이 가이던스를 얼마나 초과했는지. 플러스면 예상보다 잘한 것이에요.</div></div>
+      <div class="gl"><div class="gl-t">보수적 가이던스 패턴</div><div class="gl-d">가이던스를 낮게 잡고 실제로는 더 잘하는 패턴. 믿을 수 있는 경영진의 신호예요.</div></div>
+      <div class="gl"><div class="gl-t">공격적 가이던스 패턴</div><div class="gl-d">가이던스를 높게 잡고 실제로는 못 미치는 패턴. 말보다 실적이 낮은 경영진이에요.</div></div>
+    </div>
+  </div>
+</div>
+</div>
+<script>
+// ── 헬퍼 ──────────────────────────────────────────────────
+function yRange(arr,p=0.12){const v=arr.filter(x=>x!=null&&!isNaN(x));if(!v.length)return{};const mn=Math.min(...v),mx=Math.max(...v),pad=(mx-mn)*p;return{min:Math.floor(mn-pad),max:Math.ceil(mx+pad)};}
+function tS(arr,cb=null){const r=yRange(arr);return{grid:{color:'rgba(255,255,255,0.04)'},border:{display:false},ticks:{color:'#64748b',font:{size:9},maxTicksLimit:5,...(cb?{callback:cb}:{})}, ...r};}
+function xS(){return{grid:{display:false},border:{display:false},ticks:{color:'#64748b',font:{size:9},maxRotation:0}};}
+const bO=()=>({responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:tS([]),x:xS()}});
+const lO=()=>({responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top',labels:{color:'#64748b',font:{size:9},boxWidth:8,boxHeight:8}}},scales:{y:tS([]),x:xS()}});
+let CR={};
+function mk(id,cfg){if(CR[id]){try{CR[id].destroy();}catch(e){}delete CR[id];}const el=document.getElementById(id);if(!el)return;CR[id]=new Chart(el.getContext('2d'),cfg);}
+function f(v){return v>=1000?(v/1000).toFixed(1):v;}
+function yc(y){return y>=20?'#22c55e':y>=0?'#3b82f6':'#ef4444';}
+
+// ── DB ────────────────────────────────────────────────────
+const Q=['2025Q1','2025Q2','2025Q3','2025Q4','2026Q1'];
+const DB={
+TSLA:{name:'테슬라',meta:'TSLA · NASDAQ',sector:'전기차',model:'하드웨어+SW',tagBg:'#14532d',tagFg:'#86efac',
+  kpi:[{l:'매출',v:'$22.4B',s:'YoY +16%',sc:'up'},{l:'영업이익(GAAP)',v:'$941M',s:'YoY +136%',sc:'up'},{l:'EPS GAAP',v:'$0.13',s:'YoY +8%',sc:'up'},{l:'EPS Non-GAAP',v:'$0.41',s:'YoY +52%',sc:'up'},{l:'FCF',v:'$1.44B',s:'YoY +117%',sc:'up'},{l:'가이던스',v:'미제시',s:'정성 가이던스',sc:'nt'}],
+  rev:[19335,22496,28095,24901,22387],revYoy:[-9,-12,12,-3,16],
+  eps_gaap:[0.12,0.33,0.39,0.24,0.13],epsGYoy:[-71,-18,-37,-60,8],
+  eps_ng:[0.27,0.40,0.50,0.50,0.41],epsNYoy:[-40,-23,-31,-17,52],
+  fcf:[664,146,3990,1420,1444],fcfYoy:[126,-89,46,-30,117],
+  opm:[2.1,4.1,5.8,5.7,4.2],opmYoy:[-66,-22,-50,-50,100],
+  ni:[409,1172,1373,840,477],guid:[null,null,null,null,null],
+  seg:{lb:['자동차','에너지','서비스'],cl:['#3b82f6','#22c55e','#f59e0b'],dt:[[13967,16661,21205,17693,16234],[2730,2789,3415,3837,2408],[2638,3046,3475,3371,3745]]},
+  geo:{lb:['미국','중국','기타'],dt:[10000,4500,7887]},
+  rd:[1200,1300,1400,1400,1500],sm:[700,700,800,700,700],sga:[1400,1500,1600,1600,1700],sbc:[573,635,663,954,1030],gm:[16.3,17.2,18.0,20.1,21.1],
+  bridge:[{i:'영업이익 (GAAP)',a:941,t:'s'},{i:'SBC 제거',a:300,t:'u'},{i:'기타 조정',a:200,t:'u'},{i:'조정 영업이익 (Non-GAAP)',a:1441,t:'e'}],
+  shares:[3210,3220,3220,3225,3230],ocf:[2156,2540,6238,3813,3937],capex:[1492,2394,2248,2393,2493],
+  rpo:null,bil:null,def:null,
+  sect:[{k:'차량 생산량',v:'408,386대',s:'2026Q1'},{k:'차량 인도량',v:'358,023대',s:'2026Q1 YoY +6%'},{k:'에너지 저장 배포',v:'8.8 GWh',s:'2026Q1'},{k:'자동차 총이익률',v:'19.2%',s:'규제크레딧 제외'}],
+  unique:{title:'차량 인도량 추이 (대)',type:'bar',datasets:[{label:'인도량',data:[336681,384122,497099,495570,358023],color:'#22c55e'}],note:'※ Tesla Earnings Release 공식 발표'},
+  ev:[
+    {tg:[{t:'정책',c:'tp'},{t:'일회성',c:'to'}],w:true,oo:'일회성: 구조조정 비용 $225M + 관세 대응 물류비 증가',tx:'머스크 DOGE 참여로 브랜드 리스크. 인도량 YoY -13%.',nm:[{k:'매출',v:'$19.3B'},{k:'YoY',v:'-9%',cl:'dn'},{k:'OPM',v:'2.1%',cl:'dn'}]},
+    {tg:[{t:'시장',c:'tmk'}],w:false,oo:null,tx:'인도량 회복. 에너지 부문 성장. 사이버택시 출시 준비.',nm:[{k:'매출',v:'$22.5B'},{k:'YoY',v:'-12%',cl:'dn'},{k:'인도량',v:'384,122대',cl:'up'}]},
+    {tg:[{t:'시장',c:'tmk'}],w:false,oo:null,tx:'인도량 YoY +2%. 에너지 저장 성장. FCF 급반등.',nm:[{k:'매출',v:'$28.1B'},{k:'YoY',v:'+12%',cl:'up'},{k:'FCF',v:'$3.99B',cl:'up'}]},
+    {tg:[{t:'시장',c:'tmk'}],w:false,oo:null,tx:'자동차 GM 20.1% 회복. 에너지 부문 YoY +25%.',nm:[{k:'매출',v:'$24.9B'},{k:'YoY',v:'-3%',cl:'dn'},{k:'GM',v:'20.1%',cl:'up'}]},
+    {tg:[{t:'시장',c:'tmk'}],w:false,oo:null,tx:'GM 21.1% 분기 최고. 사이버택시 달라스·휴스턴 확장. CapEx $25B 계획.',nm:[{k:'매출',v:'$22.4B'},{k:'YoY',v:'+16%',cl:'up'},{k:'Non-GAAP EPS',v:'$0.41',cl:'up'}]},
+  ]},
+NVDA:{name:'엔비디아',meta:'NVDA · NASDAQ',sector:'AI 반도체',model:'하드웨어+SW',tagBg:'#3b1a5f',tagFg:'#c4b5fd',
+  kpi:[{l:'매출',v:'$68.1B',s:'YoY +73% (FY26Q4)',sc:'up'},{l:'영업이익(GAAP)',v:'$47.1B',s:'YoY +73%',sc:'up'},{l:'EPS GAAP',v:'$1.76',s:'YoY +98%',sc:'up'},{l:'EPS Non-GAAP',v:'$1.62',s:'YoY +82%',sc:'up'},{l:'FCF',v:'$32.0B',s:'마진 47.0%',sc:'up'},{l:'2026Q1 실적',v:'미발표',s:'FY27Q1 발표 예정',sc:'nt'}],
+  rev:[44100,46700,57000,68100,null],revYoy:[69,56,62,73,null],
+  eps_gaap:[0.76,1.08,1.30,1.76,null],epsGYoy:[27,20,67,98,null],
+  eps_ng:[0.81,1.04,1.30,1.62,null],epsNYoy:[33,53,60,82,null],
+  fcf:[25100,24800,31800,32000,null],fcfYoy:[151,84,92,50,null],
+  opm:[54.3,60.8,63.2,69.1,null],opmYoy:[6,18,16,20,null],
+  ni:[18775,26422,31910,43200,null],guid:[43000,45000,32500,37500,43000],
+  seg:{lb:['데이터센터','게이밍','전문시각화','자동차'],cl:['#3b82f6','#22c55e','#f59e0b','#a855f7'],dt:[[39100,41100,51200,62300,null],[2500,3800,4300,4400,null],[400,700,760,800,null],[200,500,600,700,null]]},
+  geo:{lb:['미국','중국','기타'],dt:[27000,4000,26000]},
+  rd:[3500,3700,4000,4500,4500],sm:[1100,1200,1300,1400,1400],sga:[800,850,900,1000,1000],sbc:[1500,1600,1700,1800,1800],gm:[60.5,72.7,73.6,73.4,73.5],
+  bridge:[{i:'영업이익 (GAAP)',a:36010,t:'s'},{i:'SBC 제거',a:1700,t:'u'},{i:'인수 관련 비용',a:90,t:'u'},{i:'조정 영업이익 (Non-GAAP)',a:37800,t:'e'}],
+  shares:[24100,24000,23900,23800,null],ocf:[26000,28000,33500,35000,null],capex:[903,1200,1700,2000,null],
+  rpo:null,bil:null,def:null,
+  sect:[{k:'데이터센터 매출',v:'$62.3B',s:'FY26Q4 YoY +75%'},{k:'게이밍 매출',v:'$4.4B',s:'YoY +97%'},{k:'전문시각화',v:'$800M',s:'YoY 성장'},{k:'2026Q1 실적',v:'미발표',s:'FY27Q1 발표 예정'}],
+  unique:{title:'데이터센터 매출 비중 (%)',type:'line',datasets:[{label:'데이터센터 비중',data:[89,88,90,91,null],color:'#3b82f6'}],note:'※ NVIDIA Earnings Release 공식 발표 / 2026Q1 미발표'},
+  ev:[
+    {tg:[{t:'정책',c:'tp'},{t:'일회성',c:'to'}],w:true,oo:'일회성: H20 수출규제로 $4.5B 비용 반영',tx:'H20 수출규제 비용 반영. 소버린AI 성장 동력 부상.',nm:[{k:'매출',v:'$44.1B'},{k:'YoY',v:'+69%',cl:'up'},{k:'규제비용',v:'$4.5B',cl:'dn'}]},
+    {tg:[{t:'시장',c:'tmk'}],w:false,oo:null,tx:'블랙웰 데이터센터 YoY +73%. H20 중단 후 안정화.',nm:[{k:'매출',v:'$46.7B'},{k:'YoY',v:'+56%',cl:'up'},{k:'데이터센터',v:'$41.1B',cl:'up'}]},
+    {tg:[{t:'시장',c:'tmk'}],w:false,oo:null,tx:'역대 최고 매출. 블랙웰 수요 "오프더차트". NVLink 급성장.',nm:[{k:'매출',v:'$57.0B'},{k:'YoY',v:'+62%',cl:'up'},{k:'데이터센터',v:'$51.2B',cl:'up'}]},
+    {tg:[{t:'시장',c:'tmk'}],w:false,oo:null,tx:'FY26 연간 $215.9B. 데이터센터 $62.3B YoY +75%. GB200 수요 급증.',nm:[{k:'매출',v:'$68.1B'},{k:'YoY',v:'+73%',cl:'up'},{k:'데이터센터',v:'$62.3B',cl:'up'}]},
+    {tg:[{t:'시장',c:'tmk'}],w:false,oo:null,tx:'2026Q1 실적 미발표 — FY27Q1 (2026년 2~4월) 발표 예정.',nm:[{k:'2026Q1',v:'미발표',cl:'nt'},{k:'가이던스',v:'$65B+',cl:'up'}]},
+  ]},
+AAPL:{name:'애플',meta:'AAPL · NASDAQ',sector:'소비자 기술',model:'하드웨어+구독',tagBg:'#1a1a2e',tagFg:'#94a3b8',
+  kpi:[{l:'매출',v:'$111.2B',s:'YoY +17%',sc:'up'},{l:'영업이익(GAAP)',v:'$33.7B',s:'YoY +18%',sc:'up'},{l:'EPS GAAP',v:'$2.01',s:'YoY +22%',sc:'up'},{l:'EPS Non-GAAP',v:'$2.01',s:'동일',sc:'up'},{l:'FCF',v:'$28.4B',s:'마진 25.6%',sc:'up'},{l:'가이던스',v:'YoY +14~17%',s:'2026Q2 ($109~113B)',sc:'nt'}],
+  rev:[95359,95360,94931,143800,111200],revYoy:[5,11,6,4,17],
+  eps_gaap:[1.65,1.72,1.82,2.81,2.01],epsGYoy:[8,12,11,10,22],
+  eps_ng:[1.65,1.72,1.82,2.81,2.01],epsNYoy:[8,12,11,10,22],
+  fcf:[23800,25000,26000,30000,28400],fcfYoy:[1,6,9,4,19],
+  opm:[29.8,30.1,30.5,32.0,30.3],opmYoy:[2,3,4,3,1],
+  ni:[24800,25800,27000,36300,29600],guid:[null,88500,null,null,108000],
+  seg:{lb:['아이폰','서비스','맥','아이패드','웨어러블'],cl:['#3b82f6','#22c55e','#f59e0b','#a855f7','#ec4899'],dt:[[53700,40000,49000,69100,58800],[26700,26000,24300,26900,30980],[7900,7990,7700,9000,8400],[6400,7200,7000,8100,6910],[7900,8000,8100,11950,7900]]},
+  geo:{lb:['미주','유럽','중화권','일본','기타아시아'],dt:[40000,24000,20000,7000,20200]},
+  rd:[8000,8100,8200,8300,8500],sm:[6700,6700,6700,7000,7100],sga:[6400,6400,6500,6700,6800],sbc:[2900,2900,2900,3000,3000],gm:[47.1,47.0,47.5,46.9,49.3],
+  bridge:[{i:'영업이익 (GAAP)',a:33700,t:'s'},{i:'SBC 제거',a:3000,t:'u'},{i:'기타 조정',a:200,t:'u'},{i:'조정 영업이익 (Non-GAAP)',a:36900,t:'e'}],
+  shares:[15100,15000,14900,14800,14700],ocf:[24800,26000,27000,30000,28000],capex:[1000,1100,1200,1400,1200],
+  rpo:null,bil:null,def:8300,
+  sect:[{k:'서비스 매출',v:'$31.0B',s:'YoY +12%'},{k:'아이폰 매출',v:'$58.8B',s:'YoY +22%'},{k:'중화권 매출',v:'$20.0B',s:'YoY +28%'},{k:'설치 기기수',v:'23억+',s:'역대 최고'}],
+  unique:{title:'서비스 매출 추이 ($B)',type:'line',datasets:[{label:'서비스 매출',data:[26.7,26.0,24.3,26.9,31.0],color:'#22c55e'}],note:'※ Apple Earnings Release 공식 발표'},
+  ev:[
+    {tg:[{t:'정책',c:'tp'},{t:'일회성',c:'to'}],w:true,oo:'일회성: 관세 대응 사전 재고 확보로 물류비 $0.8B 추가',tx:'트럼프 관세 정책. 인도 생산 전환 가속화.',nm:[{k:'매출',v:'$95.4B'},{k:'YoY',v:'+5%',cl:'up'}]},
+    {tg:[{t:'시장',c:'tmk'}],w:false,oo:null,tx:'서비스 YoY +14%. 아이폰 인도 생산 확대.',nm:[{k:'매출',v:'$95.4B'},{k:'YoY',v:'+11%',cl:'up'},{k:'서비스',v:'$26.0B',cl:'up'}]},
+    {tg:[{t:'시장',c:'tmk'}],w:false,oo:null,tx:'애플 인텔리전스 전 모델. 중국 매출 회복세.',nm:[{k:'매출',v:'$94.9B'},{k:'YoY',v:'+6%',cl:'up'},{k:'서비스',v:'$24.3B',cl:'up'}]},
+    {tg:[{t:'시장',c:'tmk'}],w:false,oo:null,tx:'역대 최고 매출. 아이폰17 수요 급증. 서비스 기록.',nm:[{k:'매출',v:'$143.8B'},{k:'YoY',v:'+4%',cl:'up'},{k:'서비스',v:'$26.9B',cl:'up'}]},
+    {tg:[{t:'시장',c:'tmk'}],w:false,oo:null,tx:'3월 분기 역대 최고. 아이폰17 "사상 최고 라인업". 서비스 $31.0B.',nm:[{k:'매출',v:'$111.2B'},{k:'YoY',v:'+17%',cl:'up'},{k:'EPS',v:'$2.01',cl:'up'}]},
+  ]},
+PLTR:{name:'팔란티어 테크놀로지스',meta:'PLTR · NYSE',sector:'소프트웨어',model:'구독형',tagBg:'#1e3a5f',tagFg:'#7dd3fc',
+  kpi:[{l:'매출',v:'$1.63B',s:'YoY +85%',sc:'up'},{l:'영업이익(GAAP)',v:'$654M',s:'YoY +400%',sc:'up'},{l:'EPS GAAP',v:'$0.18',s:'YoY +125%',sc:'up'},{l:'EPS Non-GAAP',v:'$0.33',s:'YoY +154%',sc:'up'},{l:'FCF',v:'$590M',s:'마진 36.2%',sc:'up'},{l:'가이던스',v:'$1.797~1.801B',s:'2026Q2 / FY $7.65B',sc:'nt'}],
+  rev:[0.884,1.004,1.181,1.414,1.627],revYoy:[39,48,63,70,85],
+  eps_gaap:[0.08,0.13,0.18,0.22,0.18],epsGYoy:[100,117,200,57,125],
+  eps_ng:[0.13,0.16,0.21,0.25,0.33],epsNYoy:[62,78,110,79,154],
+  fcf:[0.370,0.569,0.435,0.791,0.590],fcfYoy:[83,282,3,50,60],
+  opm:[20.1,26.8,36.8,40.6,40.1],opmYoy:[8,18,28,41,100],
+  ni:[0.214,0.327,0.434,0.692,0.654],guid:[0.858,0.934,1.083,1.327,1.534],
+  seg:{lb:['미국 상업','미국 정부','해외 상업','해외 정부'],cl:['#3b82f6','#22c55e','#f59e0b','#a855f7'],dt:[[138,255,397,507,595],[373,426,486,570,700],[150,159,176,200,220],[106,164,122,137,112]]},
+  geo:{lb:['미국','해외'],dt:[883,298]},
+  rd:[0.098,0.110,0.120,0.135,0.150],sm:[0.134,0.160,0.180,0.200,0.220],sga:[0.052,0.060,0.070,0.075,0.080],sbc:[0.180,0.220,0.250,0.280,0.300],gm:[82,83,83,84,84],
+  bridge:[{i:'영업이익 (GAAP)',a:654,t:'s'},{i:'SBC 제거',a:300,t:'u'},{i:'고용세 조정',a:35,t:'u'},{i:'조정 영업이익 (Non-GAAP)',a:989,t:'e'}],
+  shares:[2140,2180,2220,2260,2300],ocf:[0.310,0.539,0.470,0.791,0.590],capex:[0.008,0.008,0.009,0.008,0.009],
+  rpo:2670,bil:null,def:202,
+  sect:[{k:'RPO (잔여수행의무)',v:'$4.45B',s:'YoY +134%'},{k:'미국 상업 YoY',v:'+133%',s:'2026Q1'},{k:'미국 정부 YoY',v:'+84%',s:'2026Q1'},{k:'Rule of 40',v:'127%',s:'2026Q1 FY 가이던스'},{k:'FY2026 매출 가이던스',v:'$7.65~7.66B',s:'YoY +71%'},{k:'고객수 (TTM)',v:'1,007개',s:'YoY +31%'}],
+  unique:{title:'고객수 추이 (미국 상업)',type:'bar',datasets:[{label:'총 고객수',data:[769,862,1001,1100,1200],color:'#3b82f6'},{label:'미국 상업',data:[139,256,397,507,595],color:'#22c55e'}],note:'※ Palantir Earnings Release 공식 발표'},
+  ev:[
+    {tg:[{t:'시장',c:'tmk'}],w:false,oo:null,tx:'미국 상업 YoY +71%. 매출 성장+마진 동시 달성.',nm:[{k:'매출',v:'$884M'},{k:'YoY',v:'+39%',cl:'up'}]},
+    {tg:[{t:'시장',c:'tmk'}],w:false,oo:null,tx:'첫 $1B 돌파. 미국 상업 YoY +93%. Rule of 40 = 94점.',nm:[{k:'매출',v:'$1.004B'},{k:'YoY',v:'+48%',cl:'up'}]},
+    {tg:[{t:'시장',c:'tmk'}],w:false,oo:null,tx:'미국 상업 YoY +121%. TCV $2.76B. Rule of 40 = 114점.',nm:[{k:'매출',v:'$1.181B'},{k:'YoY',v:'+63%',cl:'up'}]},
+    {tg:[{t:'시장',c:'tmk'},{t:'계약',c:'tc'}],w:false,oo:null,tx:'Q4 역대 최고 성장률 +70%. 미국 상업 +137%. RPO $4.38B.',nm:[{k:'매출',v:'$1.414B'},{k:'YoY',v:'+70%',cl:'up'},{k:'Rule of 40',v:'127점',cl:'up'}]},
+    {tg:[{t:'시장',c:'tmk'}],w:false,oo:null,tx:'매출 YoY +85% — 상장 이래 최고 성장률. 미국 상업 +133%. RPO $4.45B.',nm:[{k:'매출',v:'$1.627B'},{k:'YoY',v:'+85%',cl:'up'},{k:'Non-GAAP EPS',v:'$0.33',cl:'up'}]},
+  ]},
+MSFT:{name:'마이크로소프트',meta:'MSFT · NASDAQ',sector:'클라우드/SW',model:'구독형',tagBg:'#1a3a2e',tagFg:'#6ee7b7',
+  kpi:[{l:'매출',v:'$82.9B',s:'YoY +18%',sc:'up'},{l:'영업이익(GAAP)',v:'$38.4B',s:'YoY +20%',sc:'up'},{l:'EPS GAAP',v:'$4.27',s:'YoY +23%',sc:'up'},{l:'EPS Non-GAAP',v:'$4.27',s:'YoY +21%',sc:'up'},{l:'FCF',v:'$22.5B',s:'마진 27.1%',sc:'up'},{l:'가이던스',v:'$86.7~87.8B',s:'달력 2026Q2',sc:'nt'}],
+  rev:[70066,76441,77673,81273,82893],revYoy:[13,18,18,17,18],
+  eps_gaap:[3.46,3.65,3.72,5.16,4.27],epsGYoy:[18,24,13,60,23],
+  eps_ng:[3.58,3.74,4.13,4.14,4.27],epsNYoy:[22,19,23,24,21],
+  fcf:[20400,21600,19300,22500,22500],fcfYoy:[4,9,-5,72,10],
+  opm:[45.6,44.9,48.9,47.4,46.3],opmYoy:[2,2,4,2,1],
+  ni:[25800,27233,27747,38500,31800],guid:[null,73800,69100,null,68700],
+  seg:{lb:['인텔리전트 클라우드','생산성·비즈니스','개인컴퓨팅'],cl:['#3b82f6','#22c55e','#f59e0b'],dt:[[26800,29400,30897,34680,34680],[29900,31700,33020,35010,35010],[13400,15400,13756,11580,12000]]},
+  geo:{lb:['미국','해외'],dt:[39000,38673]},
+  rd:[7900,8200,8500,8800,9000],sm:[6400,6600,6800,7000,7200],sga:[4600,4700,4900,5000,5100],sbc:[2300,2400,2500,2600,2700],gm:[70,71,72,68,68],
+  bridge:[{i:'영업이익 (GAAP)',a:38400,t:'s'},{i:'SBC 제거',a:2700,t:'u'},{i:'OpenAI 투자손실 제거',a:14,t:'u'},{i:'조정 영업이익 (Non-GAAP)',a:41114,t:'e'}],
+  shares:[7434,7430,7430,7430,7430],ocf:[37200,31900,27700,22500,22500],capex:[21400,21600,14000,30880,30880],
+  rpo:null,bil:null,def:null,
+  sect:[{k:'Azure 성장률',v:'+39~40%',s:'YoY 2026Q2 가이던스'},{k:'Microsoft Cloud',v:'$54.1B',s:'YoY +29%'},{k:'AI ARR',v:'$37B+',s:'연간 환산 YoY +123%'},{k:'Copilot 기업도입',v:'2,000만 시트+',s:'이전 분기比 +33%'},{k:'RPO',v:'$627B',s:'YoY +99%'}],
+  unique:{title:'Azure 성장률 추이 (%)',type:'line',datasets:[{label:'Azure YoY %',data:[33,23,33,39,39],color:'#3b82f6'}],note:'※ Microsoft Earnings Release 공식 발표'},
+  ev:[
+    {tg:[{t:'시장',c:'tmk'}],w:false,oo:null,tx:'Azure +33% 재가속. AI ARR 연간 $13B 돌파.',nm:[{k:'매출',v:'$70.1B'},{k:'YoY',v:'+13%',cl:'up'},{k:'Azure',v:'+33%',cl:'up'}]},
+    {tg:[{t:'시장',c:'tmk'}],w:false,oo:null,tx:'Cloud $46.7B YoY +27%. Copilot 도입 가속.',nm:[{k:'매출',v:'$76.4B'},{k:'YoY',v:'+18%',cl:'up'},{k:'Cloud',v:'$46.7B',cl:'up'}]},
+    {tg:[{t:'시장',c:'tmk'}],w:false,oo:null,tx:'Cloud $49.1B YoY +22%. Azure +33%. AI ARR 급성장.',nm:[{k:'매출',v:'$77.7B'},{k:'YoY',v:'+18%',cl:'up'},{k:'EPS',v:'$3.72',cl:'up'}]},
+    {tg:[{t:'시장',c:'tmk'},{t:'일회성',c:'to'}],w:true,oo:'일회성: OpenAI 투자 손실 $3.1B → EPS -$0.41 영향',tx:'Cloud $51.5B YoY +26%. Azure +39%. Copilot 2,000만 시트.',nm:[{k:'매출',v:'$81.3B'},{k:'YoY',v:'+17%',cl:'up'},{k:'Azure',v:'+39%',cl:'up'}]},
+    {tg:[{t:'시장',c:'tmk'}],w:false,oo:null,tx:'Cloud $54.1B YoY +29%. Azure +40%. RPO $627B YoY +99%.',nm:[{k:'매출',v:'$82.9B'},{k:'YoY',v:'+18%',cl:'up'},{k:'Azure',v:'+40%',cl:'up'}]},
+  ]},
+GOOGL:{name:'알파벳 (구글)',meta:'GOOGL · NASDAQ',sector:'검색/클라우드',model:'광고+구독',tagBg:'#1a2e3b',tagFg:'#7dd3fc',
+  kpi:[{l:'매출',v:'$109.9B',s:'YoY +22%',sc:'up'},{l:'영업이익(GAAP)',v:'$30.6B',s:'YoY +66%',sc:'up'},{l:'EPS GAAP',v:'$5.11',s:'YoY +82%',sc:'up'},{l:'EPS Non-GAAP',v:'$2.62',s:'YoY +18%',sc:'up'},{l:'FCF',v:'$19.5B',s:'마진 17.7%',sc:'up'},{l:'가이던스',v:'미제시',s:'정성 가이던스',sc:'nt'}],
+  rev:[90234,96438,88268,96469,109896],revYoy:[12,14,15,12,22],
+  eps_gaap:[2.12,2.21,2.38,2.81,5.11],epsGYoy:[37,17,15,31,82],
+  eps_ng:[2.22,2.35,2.18,2.22,2.62],epsNYoy:[33,18,15,10,18],
+  fcf:[18300,19900,17643,23996,19500],fcfYoy:[14,24,29,34,7],
+  opm:[33.9,33.0,33.0,36.0,30.0],opmYoy:[7,4,4,5,0],
+  ni:[34500,27000,28500,43600,62600],guid:[null,null,null,null,null],
+  seg:{lb:['구글 서비스','구글 클라우드','기타'],cl:['#3b82f6','#22c55e','#f59e0b'],dt:[[77000,85000,76700,84700,89600],[12300,14200,17700,17700,20000],[800,900,800,800,800]]},
+  geo:{lb:['미국','EMEA','APAC','기타'],dt:[41000,22000,16000,11234]},
+  rd:[13200,14000,14500,14800,15000],sm:[7400,7500,7700,8000,8200],sga:[4000,4100,4200,4300,4500],sbc:[5700,6000,6200,6500,6800],gm:[57,58,58,58,58],
+  bridge:[{i:'영업이익 (GAAP)',a:30600,t:'s'},{i:'SBC 제거',a:5700,t:'u'},{i:'기타 조정',a:300,t:'u'},{i:'조정 영업이익 (Non-GAAP)',a:36600,t:'e'}],
+  shares:[11800,11600,11400,11200,11000],ocf:[25900,26500,30800,36888,35000],capex:[17200,18000,18500,20000,20000],
+  rpo:null,bil:null,def:null,
+  sect:[{k:'Google Cloud',v:'$20.0B',s:'YoY +63% 역대 최고 성장률'},{k:'YouTube 광고',v:'$9.88B',s:'YoY +11%'},{k:'구글 검색 광고',v:'$60.5B',s:'YoY +19%'},{k:'Cloud 백로그',v:'$460B',s:'거의 2배 성장'}],
+  unique:{title:'Google Cloud 매출 추이 ($B)',type:'line',datasets:[{label:'Cloud',data:[12.26,14.20,17.60,17.70,20.0],color:'#22c55e'}],note:'※ Alphabet Earnings Release 공식 발표'},
+  ev:[
+    {tg:[{t:'시장',c:'tmk'}],w:false,oo:null,tx:'AI 검색 광고 효율 개선. Cloud +28%.',nm:[{k:'매출',v:'$90.2B'},{k:'YoY',v:'+12%',cl:'up'},{k:'Cloud',v:'+28%',cl:'up'}]},
+    {tg:[{t:'시장',c:'tmk'}],w:false,oo:null,tx:'Cloud +29%. Gemini 기업 도입 확산.',nm:[{k:'매출',v:'$96.4B'},{k:'YoY',v:'+14%',cl:'up'},{k:'Cloud',v:'+29%',cl:'up'}]},
+    {tg:[{t:'시장',c:'tmk'}],w:false,oo:null,tx:'Cloud +35%. Gemini 성장. Waymo 확장.',nm:[{k:'매출',v:'$88.3B'},{k:'YoY',v:'+15%',cl:'up'},{k:'Cloud',v:'+35%',cl:'up'}]},
+    {tg:[{t:'시장',c:'tmk'}],w:false,oo:null,tx:'연간 최고 매출. Cloud +48%.',nm:[{k:'매출',v:'$96.5B'},{k:'YoY',v:'+12%',cl:'up'},{k:'Cloud',v:'+48%',cl:'up'}]},
+    {tg:[{t:'시장',c:'tmk'}],w:false,oo:null,tx:'Cloud +63% 역대 최고 성장. 검색 +19%. EPS YoY +82%. 백로그 $460B.',nm:[{k:'매출',v:'$109.9B'},{k:'YoY',v:'+22%',cl:'up'},{k:'Cloud',v:'$20B',cl:'up'}]},
+  ]},
+META:{name:'메타 플랫폼스',meta:'META · NASDAQ',sector:'소셜/광고',model:'광고형',tagBg:'#422006',tagFg:'#fcd34d',
+  kpi:[{l:'매출',v:'$56.3B',s:'YoY +33%',sc:'up'},{l:'영업이익(GAAP)',v:'$22.9B',s:'YoY +34%',sc:'up'},{l:'EPS GAAP',v:'$10.44',s:'⚠️세금혜택 $8B 포함',sc:'nt'},{l:'EPS Non-GAAP',v:'$7.31',s:'조정 YoY +37%',sc:'up'},{l:'FCF',v:'$12.4B',s:'마진 22.0%',sc:'up'},{l:'가이던스',v:'$58~61B',s:'2026Q2 YoY +15~22%',sc:'nt'}],
+  rev:[42314,47516,51242,59900,56311],revYoy:[16,22,26,24,33],
+  eps_gaap:[6.43,7.14,1.05,8.05,10.44],epsGYoy:[37,38,-83,17,62],
+  eps_ng:[6.70,7.20,7.25,8.05,7.31],epsNYoy:[35,34,17,33,9],
+  fcf:[10300,10880,10620,17900,12390],fcfYoy:[30,0,32,50,20],
+  opm:[40.2,43.0,40.0,48.0,40.7],opmYoy:[5,12,8,15,6],
+  ni:[16644,18264,11729,22700,26773],guid:[null,43500,49000,46500,59500],
+  seg:{lb:['광고','기타'],cl:['#3b82f6','#22c55e'],dt:[[41400,46561,50325,58400,55400],[914,955,917,1500,911]]},
+  geo:{lb:['미국·캐나다','유럽','아시아','기타'],dt:[22200,10500,11200,7342]},
+  rd:[11300,12000,12500,13000,13500],sm:[3300,3500,3700,4000,4200],sga:[3100,3300,3500,3700,4000],sbc:[3800,4000,4200,4400,4600],gm:[81,82,81,82,82],
+  bridge:[{i:'영업이익 (GAAP)',a:22900,t:'s'},{i:'SBC 제거',a:4600,t:'u'},{i:'세금혜택 제거',a:-8030,t:'u'},{i:'조정 영업이익 (Non-GAAP)',a:19470,t:'e'}],
+  shares:[2540,2520,2510,2500,2490],ocf:[19200,24900,30000,32000,32230],capex:[13700,14400,19370,19500,19840],
+  rpo:null,bil:null,def:null,
+  sect:[{k:'DAP (일간 활성 사용자)',v:'35.6억명',s:'2026Q1 YoY +4%'},{k:'ARPU (유저당 평균 매출)',v:'$15.66',s:'YoY +20%'},{k:'광고 노출수',v:'+19%',s:'YoY'},{k:'광고 단가(CPM)',v:'+12%',s:'YoY'},{k:'2026 CapEx 가이던스',v:'$115~135B',s:'YoY +67~97%'}],
+  unique:{title:'DAP 추이 (억명)',type:'line',datasets:[{label:'DAP',data:[32.9,34.0,35.0,36.5,35.6],color:'#3b82f6'}],note:'※ Meta Earnings Release 공식 발표'},
+  ev:[
+    {tg:[{t:'시장',c:'tmk'}],w:false,oo:null,tx:'AI 인프라 CapEx 급증. 메타버스 손실 지속.',nm:[{k:'매출',v:'$42.3B'},{k:'YoY',v:'+16%',cl:'up'}]},
+    {tg:[{t:'시장',c:'tmk'}],w:false,oo:null,tx:'광고 단가 상승. AI 광고 도구 연간 $10B 돌파.',nm:[{k:'매출',v:'$47.5B'},{k:'YoY',v:'+22%',cl:'up'}]},
+    {tg:[{t:'시장',c:'tmk'},{t:'일회성',c:'to'}],w:true,oo:'일회성: 세금 법 개정으로 GAAP EPS $1.05. 조정 EPS $7.25',tx:'AI 광고 효율 극대화. DAU 35억. 일회성 세금 비용.',nm:[{k:'매출',v:'$51.2B'},{k:'YoY',v:'+26%',cl:'up'}]},
+    {tg:[{t:'시장',c:'tmk'}],w:false,oo:null,tx:'Q4 매출 $59.9B YoY +24%. AI 광고 ARR 급성장.',nm:[{k:'매출',v:'$59.9B'},{k:'YoY',v:'+24%',cl:'up'}]},
+    {tg:[{t:'시장',c:'tmk'},{t:'일회성',c:'to'}],w:true,oo:'일회성: 세금혜택 $8B 포함. 제외 시 EPS $7.31',tx:'YoY +33% — 2021년 이후 최고 성장. DAP 35.6억. CapEx $115~135B 가이던스.',nm:[{k:'매출',v:'$56.3B'},{k:'YoY',v:'+33%',cl:'up'},{k:'조정EPS',v:'$7.31',cl:'up'}]},
+  ]},
+AMZN:{name:'아마존',meta:'AMZN · NASDAQ',sector:'이커머스/클라우드',model:'복합형',tagBg:'#2d1a06',tagFg:'#fcd34d',
+  kpi:[{l:'매출',v:'$181.5B',s:'YoY +17%',sc:'up'},{l:'영업이익(GAAP)',v:'$23.9B',s:'YoY +30%',sc:'up'},{l:'EPS GAAP',v:'$2.78',s:'YoY +75%',sc:'up'},{l:'EPS Non-GAAP',v:'$2.78',s:'동일',sc:'up'},{l:'FCF',v:'$1.2B',s:'TTM (CapEx급증)',sc:'nt'},{l:'가이던스',v:'$194~199B',s:'달력 2026Q2',sc:'nt'}],
+  rev:[155700,158900,159000,187790,181500],revYoy:[9,7,11,10,17],
+  eps_gaap:[1.59,1.43,1.43,1.86,2.78],epsGYoy:[94,46,52,88,75],
+  eps_ng:[1.72,1.60,1.55,1.98,2.78],epsNYoy:[89,43,48,82,75],
+  fcf:[38200,40000,47700,50100,1200],fcfYoy:[79,60,372,383,-95],
+  opm:[13.1,11.5,10.6,11.2,13.2],opmYoy:[8,4,6,5,0],
+  ni:[17127,15000,15328,20001,30300],guid:[null,159000,163000,165000,187790],
+  seg:{lb:['북미','해외','AWS'],cl:['#3b82f6','#22c55e','#f59e0b'],dt:[[92900,93400,95500,115600,104100],[33500,30000,35900,43600,39800],[29300,28900,27452,28800,37600]]},
+  geo:{lb:['북미','해외'],dt:[92900,33500]},
+  rd:[26000,27000,28000,29000,30000],sm:[12600,12000,11900,12800,13000],sga:[7800,8000,8200,8500,8800],sbc:[5900,6000,6200,6500,6800],gm:[49,50,50,50,50],
+  bridge:[{i:'영업이익 (GAAP)',a:24700,t:'s'},{i:'SBC 제거',a:5900,t:'u'},{i:'감가상각 조정',a:2100,t:'u'},{i:'조정 영업이익 (Non-GAAP)',a:32700,t:'e'}],
+  shares:[10800,10900,10600,10700,11000],ocf:[113000,60000,60500,115900,50000],capex:[24300,24000,21700,26300,44200],
+  rpo:null,bil:null,def:null,
+  sect:[{k:'AWS 매출',v:'$37.6B',s:'YoY +28% — 15분기 최고 성장'},{k:'광고 서비스',v:'$17.24B',s:'YoY +24%'},{k:'구독 서비스',v:'$13.0B',s:'YoY +11%'},{k:'2026 CapEx',v:'$200B+',s:'AI 인프라 투자'}],
+  unique:{title:'AWS 매출 추이 ($B)',type:'bar',datasets:[{label:'AWS',data:[29.3,28.9,27.5,28.8,37.6],color:'#f59e0b'}],note:'※ Amazon Earnings Release 공식 발표'},
+  ev:[
+    {tg:[{t:'시장',c:'tmk'}],w:false,oo:null,tx:'AWS +17%. 광고 급성장.',nm:[{k:'매출',v:'$155.7B'},{k:'YoY',v:'+9%',cl:'up'},{k:'AWS',v:'+17%',cl:'up'}]},
+    {tg:[{t:'시장',c:'tmk'}],w:false,oo:null,tx:'AWS +19%. AI 서비스 도입 확대.',nm:[{k:'매출',v:'$158.9B'},{k:'YoY',v:'+7%',cl:'up'},{k:'AWS',v:'+19%',cl:'up'}]},
+    {tg:[{t:'시장',c:'tmk'}],w:false,oo:null,tx:'AWS +19%. AI 인프라 투자 가속.',nm:[{k:'매출',v:'$159B'},{k:'YoY',v:'+11%',cl:'up'},{k:'AWS',v:'+19%',cl:'up'}]},
+    {tg:[{t:'시장',c:'tmk'}],w:false,oo:null,tx:'연간 최고 실적. AWS+광고 동반 성장.',nm:[{k:'매출',v:'$187.8B'},{k:'YoY',v:'+10%',cl:'up'},{k:'FCF',v:'$50.1B',cl:'up'}]},
+    {tg:[{t:'시장',c:'tmk'}],w:false,oo:null,tx:'AWS +28% — 15분기 최고 성장. 광고 +24%. EPS YoY +75%.',nm:[{k:'매출',v:'$181.5B'},{k:'YoY',v:'+17%',cl:'up'},{k:'AWS',v:'$37.6B',cl:'up'}]},
+  ]},
+IONQ:{name:'아이온큐',meta:'IONQ · NYSE',sector:'양자컴퓨팅',model:'연구개발',tagBg:'#2e1a3b',tagFg:'#d8b4fe',
+  kpi:[{l:'매출',v:'$64.7M',s:'YoY +755%',sc:'up'},{l:'EPS GAAP',v:'$2.59',s:'일회성 포함',sc:'nt'},{l:'EPS Non-GAAP',v:'-$0.34',s:'조정 손실',sc:'dn'},{l:'현금보유',v:'$3.1B',s:'매우 풍부',sc:'up'},{l:'2026 가이던스',v:'$265M',s:'YoY +100%+',sc:'up'},{l:'RPO',v:'YoY +554%',s:'미래 매출 가시성',sc:'up'}],
+  rev:[7600,10200,39900,61900,64700],revYoy:[95,70,222,429,755],
+  eps_gaap:[-0.13,-0.13,-0.13,-0.15,2.59],epsGYoy:[-30,-30,-30,-30,700],
+  eps_ng:[-0.12,-0.12,-0.13,-0.20,-0.34],epsNYoy:[-25,-25,-30,-30,-40],
+  fcf:[-40000,-42000,-60000,-80000,-96750],fcfYoy:[0,0,0,0,0],
+  opm:[-500,-440,-420,-400,-150],opmYoy:[0,0,0,0,0],
+  ni:[-46000,-48000,-50000,-70000,805400],guid:[null,8000,10500,12000,50000],
+  seg:{lb:['상업','정부'],cl:['#3b82f6','#22c55e'],dt:[[2000,2500,3000,3800,4000],[2000,2500,3000,3800,3600]]},
+  geo:{lb:['미국','해외'],dt:[6000,1600]},
+  rd:[32000,34000,36000,40000,50000],sm:[5000,5000,5000,6000,8000],sga:[8000,8000,8000,10000,12000],sbc:[18000,19000,20000,100000,128500],gm:[55,55,55,58,62],
+  bridge:[{i:'영업손실 (GAAP)',a:-46000,t:'s'},{i:'SBC 제거',a:18000,t:'u'},{i:'D&A 조정',a:5000,t:'u'},{i:'조정 영업손실 (Non-GAAP)',a:-23000,t:'e'}],
+  shares:[360000,365000,370000,380000,390000],ocf:[-38000,-40000,-60000,-80000,-97000],capex:[7000,7000,7000,8000,8000],
+  rpo:null,bil:null,def:null,
+  sect:[{k:'Q1 2026 매출',v:'$64.7M',s:'YoY +755% — 역대 최고'},{k:'2026 가이던스',v:'$265M',s:'유기적 성장 100%+'},{k:'현금 보유',v:'$3.1B',s:'SkyWater 인수 포함'},{k:'케임브리지大 256큐비트 시스템 판매',s:'상업 확장'}],
+  unique:{title:'분기 매출 추이 ($M)',type:'bar',datasets:[{label:'매출',data:[7.6,10.2,39.9,61.9,64.7],color:'#a855f7'}],note:'※ IonQ Earnings Release 공식 발표'},
+  ev:[
+    {tg:[{t:'시장',c:'tmk'}],w:false,oo:null,tx:'IQ 300 출하 본격화. 백로그 YoY +83%.',nm:[{k:'매출',v:'$7.6M'},{k:'YoY',v:'+95%',cl:'up'}]},
+    {tg:[{t:'계약',c:'tc'}],w:false,oo:null,tx:'미 공군 계약. 케임브리지大 시스템 판매.',nm:[{k:'매출',v:'$10.2M'},{k:'YoY',v:'+70%',cl:'up'}]},
+    {tg:[{t:'시장',c:'tmk'}],w:false,oo:null,tx:'상업화 급가속. YoY +222%. 멀티제품 전략 효과.',nm:[{k:'매출',v:'$39.9M'},{k:'YoY',v:'+222%',cl:'up'}]},
+    {tg:[{t:'시장',c:'tmk'}],w:false,oo:null,tx:'역대 최고 분기. YoY +429%. 현금 $3.1B 보유.',nm:[{k:'매출',v:'$61.9M'},{k:'YoY',v:'+429%',cl:'up'}]},
+    {tg:[{t:'시장',c:'tmk'}],w:false,oo:null,tx:'YoY +755% — 4분기 연속 역대 최고. 가이던스 $265M으로 상향.',nm:[{k:'매출',v:'$64.7M'},{k:'YoY',v:'+755%',cl:'up'},{k:'2026 가이던스',v:'$265M',cl:'up'}]},
+  ]},
+AMD:{name:'AMD',meta:'AMD · NASDAQ',sector:'반도체',model:'하드웨어+SW',tagBg:'#3b1a1a',tagFg:'#fca5a5',
+  kpi:[{l:'매출',v:'$10.3B',s:'YoY +38%',sc:'up'},{l:'영업이익(GAAP)',v:'$1.5B',s:'YoY +86%',sc:'up'},{l:'EPS GAAP',v:'$0.84',s:'YoY +91%',sc:'up'},{l:'EPS Non-GAAP',v:'$1.37',s:'YoY +43%',sc:'up'},{l:'FCF',v:'$2.6B',s:'역대 최고',sc:'up'},{l:'가이던스',v:'~$11.2B',s:'2026Q2 YoY +46%',sc:'nt'}],
+  rev:[7438,7685,8732,9428,10253],revYoy:[36,32,28,24,38],
+  eps_gaap:[0.44,0.47,0.62,1.53,0.84],epsGYoy:[529,571,32,58,91],
+  eps_ng:[0.96,1.01,1.25,1.53,1.37],epsNYoy:[55,46,36,15,43],
+  fcf:[1200,1100,1400,727,2570],fcfYoy:[50,57,56,40,114],
+  opm:[10.8,8.5,10.0,16.7,14.6],opmYoy:[952,507,75,200,35],
+  ni:[709,839,1254,3879,1400],guid:[null,7700,8400,9800,9800],
+  seg:{lb:['데이터센터','클라이언트','게이밍','임베디드'],cl:['#3b82f6','#22c55e','#f59e0b','#a855f7'],dt:[[3700,4000,4900,5373,5780],[2200,2500,2800,3100,3610],[700,600,500,420,0],[800,700,600,873,873]]},
+  geo:{lb:['미국','중국','일본','기타'],dt:[3000,1800,1000,1638]},
+  rd:[1800,1900,2000,2100,2200],sm:[600,650,700,750,800],sga:[400,420,440,460,480],sbc:[900,950,1000,1050,1100],gm:[50,50,51,52,53],
+  bridge:[{i:'영업이익 (GAAP)',a:426,t:'s'},{i:'SBC 제거',a:900,t:'u'},{i:'인수 무형자산 상각',a:1100,t:'u'},{i:'조정 영업이익 (Non-GAAP)',a:2426,t:'e'}],
+  shares:[1625,1630,1635,1640,1650],ocf:[1300,1200,1500,780,3000],capex:[100,100,100,53,430],
+  rpo:null,bil:null,def:null,
+  sect:[{k:'데이터센터 매출',v:'$5.8B',s:'YoY +57%'},{k:'클라이언트+게이밍',v:'$3.6B',s:'YoY +23%'},{k:'임베디드',v:'$873M',s:'YoY +6%'},{k:'2026Q2 가이던스',v:'$11.2B',s:'YoY +46%'}],
+  unique:{title:'데이터센터 매출 추이 ($B)',type:'bar',datasets:[{label:'데이터센터',data:[3.70,4.0,4.9,5.37,5.78],color:'#3b82f6'}],note:'※ AMD Earnings Release 공식 발표'},
+  ev:[
+    {tg:[{t:'시장',c:'tmk'}],w:false,oo:null,tx:'데이터센터 YoY +57%. MI350 로드맵 공개.',nm:[{k:'매출',v:'$7.4B'},{k:'YoY',v:'+36%',cl:'up'},{k:'데이터센터',v:'$3.7B',cl:'up'}]},
+    {tg:[{t:'시장',c:'tmk'}],w:false,oo:null,tx:'데이터센터 YoY +69%. Instinct GPU 수요 급증.',nm:[{k:'매출',v:'$7.7B'},{k:'YoY',v:'+32%',cl:'up'},{k:'데이터센터',v:'$4.0B',cl:'up'}]},
+    {tg:[{t:'시장',c:'tmk'}],w:false,oo:null,tx:'데이터센터 YoY +69%. MI300 점유율 확대.',nm:[{k:'매출',v:'$8.7B'},{k:'YoY',v:'+28%',cl:'up'},{k:'데이터센터',v:'$4.9B',cl:'up'}]},
+    {tg:[{t:'시장',c:'tmk'}],w:false,oo:null,tx:'데이터센터 YoY +69%. Q4 FY25 역대 최고.',nm:[{k:'매출',v:'$9.4B'},{k:'YoY',v:'+24%',cl:'up'},{k:'데이터센터',v:'$5.4B',cl:'up'}]},
+    {tg:[{t:'시장',c:'tmk'},{t:'계약',c:'tc'}],w:false,oo:null,tx:'데이터센터 YoY +57%. Meta 6GW Instinct 계약. Helios 출시 준비.',nm:[{k:'매출',v:'$10.3B'},{k:'YoY',v:'+38%',cl:'up'},{k:'데이터센터',v:'$5.8B',cl:'up'}]},
+  ]},
+NFLX:{name:'넷플릭스',meta:'NFLX · NASDAQ',sector:'스트리밍',model:'구독형',tagBg:'#3b0f2e',tagFg:'#f9a8d4',
+  kpi:[{l:'매출',v:'$12.25B',s:'YoY +16%',sc:'up'},{l:'영업이익(GAAP)',v:'$3.96B',s:'YoY +18%',sc:'up'},{l:'EPS GAAP',v:'$1.23',s:'WBD 위약금 포함',sc:'nt'},{l:'EPS Non-GAAP',v:'$1.23',s:'동일',sc:'up'},{l:'FCF',v:'$5.09B',s:'마진 41.6%',sc:'up'},{l:'가이던스',v:'$12.574B',s:'2026Q2 YoY +13%',sc:'nt'}],
+  rev:[10543,11079,11510,12051,12250],revYoy:[13,16,17,18,16],
+  eps_gaap:[6.61,0.67,0.44,0.74,1.23],epsGYoy:[24,-87,-92,-83,86],
+  eps_ng:[6.61,0.67,0.44,0.74,1.23],epsNYoy:[24,-87,-92,-83,86],
+  fcf:[2680,1307,2191,2957,5090],fcfYoy:[25,0,0,78,90],
+  opm:[31.7,34.1,28.2,24.5,32.3],opmYoy:[4,7,2,-2,2],
+  ni:[2888,3125,2547,2419,5283],guid:[null,11079,11510,12051,12250],
+  seg:{lb:['UCAN','EMEA','LATAM','APAC'],cl:['#3b82f6','#22c55e','#f59e0b','#a855f7'],dt:[[4340,4500,4650,4800,5000],[3445,3500,3560,3700,3800],[1210,1250,1280,1320,1380],[1350,1400,1450,1500,1600]]},
+  geo:{lb:['북미','유럽','중남미','아시아'],dt:[4340,3445,1210,1350]},
+  rd:[770,800,820,840,960],sm:[720,730,740,810,842],sga:[480,490,500,510,602],sbc:[0,0,0,0,0],gm:[47,47,48,48,48],
+  bridge:[{i:'영업이익 (GAAP)',a:3300,t:'s'},{i:'SBC 없음 (스톡옵션 미사용)',a:0,t:'u'},{i:'조정 영업이익 (Non-GAAP)',a:3300,t:'e'}],
+  shares:[427,426,425,424,423],ocf:[2780,1400,2300,2000,5100],capex:[100,100,100,100,107],
+  rpo:null,bil:null,def:null,
+  sect:[{k:'구독자',v:'3.25억명+',s:'2025년 말 공시 이후 미업데이트'},{k:'광고 매출',v:'$3B',s:'2026년 목표 (YoY 2배)'},{k:'WBD 위약금',v:'$2.8B',s:'일회성 수익 — EPS 부양'},{k:'FCF',v:'$5.09B',s:'마진 41.6% 급증'}],
+  unique:{title:'분기 매출 추이 ($B)',type:'line',datasets:[{label:'매출',data:[10.54,11.08,11.51,12.05,12.25],color:'#ec4899'}],note:'※ Netflix Earnings Release 공식 발표'},
+  ev:[
+    {tg:[{t:'시장',c:'tmk'}],w:false,oo:null,tx:'광고 요금제 확대. OPM 31.7% 개선.',nm:[{k:'매출',v:'$10.5B'},{k:'YoY',v:'+13%',cl:'up'},{k:'OPM',v:'31.7%',cl:'up'}]},
+    {tg:[{t:'시장',c:'tmk'}],w:false,oo:null,tx:'스포츠 라이브 확대. 가격 인상. OPM 34.1%.',nm:[{k:'매출',v:'$11.1B'},{k:'YoY',v:'+16%',cl:'up'},{k:'OPM',v:'34.1%',cl:'up'}]},
+    {tg:[{t:'시장',c:'tmk'}],w:false,oo:null,tx:'야구·NFL 콘텐츠. 가격 인상 효과 지속.',nm:[{k:'매출',v:'$11.5B'},{k:'YoY',v:'+17%',cl:'up'}]},
+    {tg:[{t:'시장',c:'tmk'}],w:false,oo:null,tx:'구독자 3.25억+. 광고 $3B 목표 달성 준비.',nm:[{k:'매출',v:'$12.1B'},{k:'YoY',v:'+18%',cl:'up'}]},
+    {tg:[{t:'시장',c:'tmk'},{t:'일회성',c:'to'}],w:true,oo:'일회성: WBD 합병 위약금 $2.8B → EPS 부양. 제외 시 실질 EPS 낮음',tx:'YoY +16%. OPM 32.3%. WBD 위약금 $2.8B 일회성 포함.',nm:[{k:'매출',v:'$12.25B'},{k:'YoY',v:'+16%',cl:'up'},{k:'FCF',v:'$5.09B',cl:'up'}]},
+  ]},
+INTC:{name:'인텔',meta:'INTC · NASDAQ',sector:'반도체',model:'하드웨어',tagBg:'#1a2e3b',tagFg:'#93c5fd',
+  kpi:[{l:'매출',v:'$13.6B',s:'YoY +7%',sc:'up'},{l:'영업이익(GAAP)',v:'$500M+',s:'YoY 흑자전환',sc:'up'},{l:'EPS GAAP',v:'$0.13',s:'YoY 흑자전환',sc:'up'},{l:'EPS Non-GAAP',v:'$0.29',s:'YoY +123%',sc:'up'},{l:'FCF',v:'$1.1B',s:'영업현금흐름',sc:'up'},{l:'가이던스',v:'$13.8~14.8B',s:'2026Q2',sc:'nt'}],
+  rev:[12718,12900,13284,14261,13600],revYoy:[0,1,8,10,7],
+  eps_gaap:[-0.19,0.10,-0.38,-0.03,0.13],epsGYoy:[-211,400,-200,-110,0],
+  eps_ng:[0.13,0.12,0.29,0.22,0.29],epsNYoy:[-28,-33,38,-26,123],
+  fcf:[-1500,-800,-500,1700,1100],fcfYoy:[-50,47,0,80,0],
+  opm:[-13.4,2.0,0.5,1.8,4.0],opmYoy:[-15,20,2,3,0],
+  ni:[-800,400,-1610,-126,1300],guid:[null,12500,13700,14700,11800],
+  seg:{lb:['CCG(PC)','DCAI(서버)','파운드리','NEX'],cl:['#3b82f6','#22c55e','#f59e0b','#a855f7'],dt:[[7700,7900,7300,8000,8200],[4100,4300,3000,3400,5000],[4400,4500,4400,4500,4600],[1500,1500,1500,1500,1600]]},
+  geo:{lb:['미국','중국','기타아시아','기타'],dt:[4000,3000,3500,2218]},
+  rd:[4200,4200,4100,4100,4300],sm:[1500,1500,1500,1500,1500],sga:[1400,1400,1400,1400,1400],sbc:[700,700,700,800,700],gm:[36,37,38,39,38],
+  bridge:[{i:'영업손실 (GAAP)',a:-1700,t:'s'},{i:'SBC 제거',a:700,t:'u'},{i:'구조조정비 제거',a:2500,t:'u'},{i:'무형자산 상각',a:300,t:'u'},{i:'조정 영업이익 (Non-GAAP)',a:1800,t:'e'}],
+  shares:[4300,4300,4270,4280,4300],ocf:[-500,500,1600,3400,1100],capex:[1000,800,5700,6500,900],
+  rpo:null,bil:null,def:null,
+  sect:[{k:'DCAI (서버+AI) 매출',v:'$5.0B',s:'YoY +22%'},{k:'CCG (PC) 매출',v:'$8.2B',s:'YoY +4%'},{k:'인텔 파운드리',v:'YoY +16%',s:'외부 고객 확대'},{k:'2026Q1 비고',v:'Non-GAAP EPS $0.29',s:'컨센서스 $0.01 대비 2,800% 어닝서프라이즈'}],
+  unique:{title:'GAAP vs Non-GAAP EPS 비교',type:'bar',datasets:[{label:'GAAP EPS',data:[-0.19,0.10,-0.38,-0.03,0.13],color:'#ef4444'},{label:'Non-GAAP EPS',data:[0.13,0.12,0.29,0.22,0.29],color:'#3b82f6'}],note:'※ Intel Earnings Release 공식 발표'},
+  ev:[
+    {tg:[{t:'시장',c:'tmk'},{t:'일회성',c:'to'}],w:true,oo:'일회성: 파운드리 자산 재평가 손실 $15B 반영',tx:'파운드리 분사 검토. 자산 손상차손 반영.',nm:[{k:'매출',v:'$12.7B'},{k:'YoY',v:'0%',cl:'nt'}]},
+    {tg:[{t:'시장',c:'tmk'}],w:false,oo:null,tx:'AI PC 수요 회복. DCAI YoY +9%.',nm:[{k:'매출',v:'$12.9B'},{k:'YoY',v:'+1%',cl:'up'}]},
+    {tg:[{t:'시장',c:'tmk'}],w:false,oo:null,tx:'18A 공정 확대. PC 수요 지속 회복.',nm:[{k:'매출',v:'$13.3B'},{k:'YoY',v:'+8%',cl:'up'}]},
+    {tg:[{t:'시장',c:'tmk'},{t:'일회성',c:'to'}],w:true,oo:'일회성: 구조조정 비용 약 $3B 반영',tx:'구조조정 진행. 팹레스 일부 전환. PC 성수기 호조.',nm:[{k:'매출',v:'$14.3B'},{k:'YoY',v:'+10%',cl:'up'}]},
+    {tg:[{t:'시장',c:'tmk'}],w:false,oo:null,tx:'DCAI +22%. Non-GAAP EPS $0.29 — 컨센서스 $0.01 대비 2,800% 어닝서프라이즈.',nm:[{k:'매출',v:'$13.6B'},{k:'YoY',v:'+7%',cl:'up'},{k:'Non-GAAP EPS',v:'$0.29',cl:'up'}]},
+  ]},
+SNOW:{name:'스노우플레이크',meta:'SNOW · NYSE',sector:'SaaS/데이터',model:'사용량 기반',tagBg:'#1a2e3b',tagFg:'#67e8f9',
+  kpi:[{l:'매출',v:'$1.284B',s:'FY26Q4 YoY +30%',sc:'up'},{l:'영업손실(GAAP)',v:'적자 지속',s:'',sc:'dn'},{l:'EPS Non-GAAP',v:'$0.36',s:'FY26Q4',sc:'up'},{l:'FCF',v:'$600M+',s:'FY26 연간',sc:'up'},{l:'2026Q1 실적',v:'미발표',s:'FY27Q1 — 5월 27일',sc:'nt'},{l:'FY27 가이던스',v:'$5.66B',s:'YoY +27%',sc:'nt'}],
+  rev:[1000,1096,1156,1231,1284],revYoy:[29,29,28,27,30],
+  eps_gaap:[-0.97,-0.72,-0.58,-0.58,-0.50],epsGYoy:[-40,3,12,10,5],
+  eps_ng:[0.28,0.31,0.35,0.36,null],epsNYoy:[87,72,75,57,null],
+  fcf:[244,264,300,350,null],fcfYoy:[100,197,27,30,null],
+  opm:[-32,-28,-22,-22,-20],opmYoy:[4,8,12,10,8],
+  ni:[-400,-350,-300,-290,null],guid:[null,null,null,null,null],
+  seg:{lb:['제품 매출','전문 서비스'],cl:['#3b82f6','#22c55e'],dt:[[943,1041,1100,1165,1218],[53,55,56,66,66]]},
+  geo:{lb:['미국','해외'],dt:[700,296]},
+  rd:[400,420,440,460,null],sm:[320,330,340,350,null],sga:[150,155,160,165,null],sbc:[340,355,370,380,null],gm:[75,76,77,76,null],
+  bridge:[{i:'영업손실 (GAAP)',a:-317,t:'s'},{i:'SBC 제거',a:340,t:'u'},{i:'D&A 조정',a:60,t:'u'},{i:'기타 조정',a:24,t:'u'},{i:'조정 영업이익 (Non-GAAP)',a:107,t:'e'}],
+  shares:[340,340,340,340,null],ocf:[255,270,310,350,null],capex:[11,12,12,12,null],
+  rpo:6700,bil:null,def:null,
+  sect:[{k:'FY26Q4 제품 매출',v:'$1.23B',s:'YoY +30%'},{k:'RPO (잔여수행의무)',v:'$9.77B',s:'YoY +42% — 역대 최고'},{k:'$1M+ 고객수',v:'733개',s:'YoY +27%'},{k:'FY27Q1 실적',v:'5월 27일 발표 예정',s:'미발표'}],
+  unique:{title:'분기 매출 추이 ($B)',type:'bar',datasets:[{label:'매출',data:[1.00,1.10,1.16,1.23,null],color:'#67e8f9'}],note:'※ Snowflake Earnings Release 공식 발표 / 2026Q1 미발표'},
+  ev:[
+    {tg:[{t:'시장',c:'tmk'}],w:false,oo:null,tx:'$1B 돌파. Iceberg 테이블 채택. RPO $6.7B.',nm:[{k:'매출',v:'$1.00B'},{k:'YoY',v:'+29%',cl:'up'}]},
+    {tg:[{t:'시장',c:'tmk'}],w:false,oo:null,tx:'Cortex AI 수요 확대. 고객수 YoY +29%.',nm:[{k:'매출',v:'$1.10B'},{k:'YoY',v:'+29%',cl:'up'}]},
+    {tg:[{t:'시장',c:'tmk'}],w:false,oo:null,tx:'AI 워크로드 가속. $1M+ 고객수 증가.',nm:[{k:'매출',v:'$1.16B'},{k:'YoY',v:'+28%',cl:'up'}]},
+    {tg:[{t:'시장',c:'tmk'}],w:false,oo:null,tx:'FY26 분기 최고. RPO $9.77B YoY +42%.',nm:[{k:'매출',v:'$1.23B'},{k:'YoY',v:'+30%',cl:'up'},{k:'RPO',v:'$9.77B',cl:'up'}]},
+    {tg:[{t:'시장',c:'tmk'}],w:false,oo:null,tx:'FY27Q1 실적 미발표 — 2026년 5월 27일 발표 예정.',nm:[{k:'FY27Q1',v:'미발표',cl:'nt'},{k:'가이던스',v:'$1.26B',cl:'up'}]},
+  ]},
+SHOP:{name:'쇼피파이',meta:'SHOP · NYSE',sector:'이커머스 SaaS',model:'구독+거래수수료',tagBg:'#14532d',tagFg:'#4ade80',
+  kpi:[{l:'매출',v:'$3.17B',s:'YoY +34%',sc:'up'},{l:'영업이익(GAAP)',v:'$382M',s:'YoY +88%',sc:'up'},{l:'EPS GAAP',v:'-$0.45',s:'투자손실 일회성',sc:'dn'},{l:'EPS Non-GAAP',v:'$0.36',s:'YoY +6%',sc:'up'},{l:'FCF',v:'$476M',s:'마진 15.0%',sc:'up'},{l:'가이던스',v:'~$3.42B',s:'2026Q2 높은 20%대',sc:'nt'}],
+  rev:[2362,2680,2887,3228,3170],revYoy:[27,31,34,26,34],
+  eps_gaap:[0.06,0.26,0.38,0.58,-0.45],epsGYoy:[100,1200,44,57,-850],
+  eps_ng:[0.34,0.43,0.54,0.56,0.36],epsNYoy:[55,65,108,44,6],
+  fcf:[410,422,476,611,476],fcfYoy:[77,77,19,15,16],
+  opm:[3.6,10.9,14.0,18.0,12.1],opmYoy:[3,10,13,15,41],
+  ni:[125,344,536,800,-581],guid:[null,2750,3000,3228,3200],
+  seg:{lb:['판매자 솔루션','구독 솔루션'],cl:['#3b82f6','#22c55e'],dt:[[1870,2024,2300,2600,2500],[492,656,720,628,670]]},
+  geo:{lb:['미국','국제'],dt:[1400,962]},
+  rd:[420,440,460,480,500],sm:[340,360,380,400,420],sga:[240,250,260,270,280],sbc:[220,230,240,250,260],gm:[51,51,52,49,49],
+  bridge:[{i:'영업이익 (GAAP)',a:86,t:'s'},{i:'SBC 제거',a:220,t:'u'},{i:'D&A 조정',a:170,t:'u'},{i:'조정 영업이익 (Non-GAAP)',a:476,t:'e'}],
+  shares:[1310,1315,1320,1330,1280],ocf:[420,430,490,630,510],capex:[10,15,15,16,34],
+  rpo:null,bil:null,def:null,
+  sect:[{k:'GMV (총상품거래액)',v:'$100.7B',s:'YoY +35% — $100B 돌파'},{k:'판매자 솔루션',v:'$2.50B',s:'YoY +39%'},{k:'구독 솔루션',v:'$670M',s:'YoY +21%'},{k:'Shop Pay GMV',v:'$67B',s:'YoY +41%'}],
+  unique:{title:'GMV (총상품거래액) 추이 ($B)',type:'bar',datasets:[{label:'GMV',data:[74.8,87.8,69.7,94.5,100.7],color:'#22c55e'}],note:'※ Shopify Earnings Release 공식 발표'},
+  ev:[
+    {tg:[{t:'시장',c:'tmk'}],w:false,oo:null,tx:'GMV $74.8B YoY +24%. FCF 마진 17.4%.',nm:[{k:'매출',v:'$2.36B'},{k:'YoY',v:'+27%',cl:'up'}]},
+    {tg:[{t:'시장',c:'tmk'}],w:false,oo:null,tx:'GMV $87.8B YoY +31%. Shop Pay 급성장.',nm:[{k:'매출',v:'$2.68B'},{k:'YoY',v:'+31%',cl:'up'}]},
+    {tg:[{t:'시장',c:'tmk'}],w:false,oo:null,tx:'GMV $69.7B YoY +26%. AI 기능 확대.',nm:[{k:'매출',v:'$2.89B'},{k:'YoY',v:'+34%',cl:'up'}]},
+    {tg:[{t:'시장',c:'tmk'}],w:false,oo:null,tx:'블랙프라이데이 GMV $94.5B 역대 최고.',nm:[{k:'매출',v:'$3.23B'},{k:'YoY',v:'+26%',cl:'up'},{k:'GMV',v:'$94.5B',cl:'up'}]},
+    {tg:[{t:'시장',c:'tmk'},{t:'일회성',c:'to'}],w:true,oo:'일회성: 투자손실 $1.08B (Affirm, Global-E, Klaviyo) → GAAP EPS -$0.45',tx:'GMV $100.7B — 처음으로 분기 $100B 돌파. Non-GAAP EPS $0.36.',nm:[{k:'매출',v:'$3.17B'},{k:'YoY',v:'+34%',cl:'up'},{k:'GMV',v:'$100.7B',cl:'up'}]},
+  ]},
+SMCI:{name:'슈퍼마이크로',meta:'SMCI · NASDAQ',sector:'AI 서버',model:'하드웨어',tagBg:'#2d2006',tagFg:'#fde68a',
+  kpi:[{l:'매출',v:'$10.2B',s:'FY26Q3 YoY +122%',sc:'up'},{l:'영업이익(GAAP)',v:'$483M',s:'YoY +344%',sc:'up'},{l:'EPS GAAP',v:'$0.72',s:'YoY +324%',sc:'up'},{l:'EPS Non-GAAP',v:'$0.84',s:'YoY +171%',sc:'up'},{l:'FCF',v:'-$6.6B',s:'재고·투자 확대',sc:'dn'},{l:'FY26 가이던스',v:'$38.9~40.4B',s:'연간',sc:'nt'}],
+  rev:[4600,12700,5000,10200,null],revYoy:[200,500,8,122,null],
+  eps_gaap:[0.67,0.60,0.26,0.72,null],epsGYoy:[-90,-91,-61,324,null],
+  eps_ng:[0.73,0.60,0.35,0.84,null],epsNYoy:[-89,-90,-81,171,null],
+  fcf:[-800,-600,-918,-6600,null],fcfYoy:[0,0,0,0,null],
+  opm:[8.7,9.5,3.4,4.7,null],opmYoy:[2,3,3,4,-2],
+  ni:[109,195,168,483,null],guid:[null,null,null,null,null],
+  seg:{lb:['서버·스토리지 시스템','서브시스템·부속품'],cl:['#3b82f6','#22c55e'],dt:[[4300,12200,4600,9800,null],[300,500,418,443,null]]},
+  geo:{lb:['미국','해외'],dt:[3000,1600]},
+  rd:[140,150,160,170,null],sm:[70,75,80,85,null],sga:[100,100,100,100,null],sbc:[35,35,35,35,null],gm:[11.3,9.5,9.3,9.9,null],
+  bridge:[{i:'영업이익 (GAAP)',a:402,t:'s'},{i:'SBC 제거',a:35,t:'u'},{i:'기타 조정',a:10,t:'u'},{i:'조정 영업이익 (Non-GAAP)',a:447,t:'e'}],
+  shares:[59,59,59,59,null],ocf:[-770,-500,-918,-6600,null],capex:[30,30,32,97,null],
+  rpo:null,bil:null,def:null,
+  sect:[{k:'FY26Q3 매출',v:'$10.2B',s:'YoY +122%'},{k:'FY26 연간 가이던스',v:'$38.9~40.4B',s:''},{k:'블랙웰 Ultra 수주',v:'$13B+',s:'누적 수주 잔고'},{k:'FY26Q4',v:'$11~12.5B 예상',s:'6월 결산'}],
+  unique:{title:'분기 매출 추이 ($B)',type:'bar',datasets:[{label:'매출',data:[4.60,12.70,5.00,10.20,null],color:'#f59e0b'}],note:'※ SMCI FY기준 (회계연도 7월) / 2026Q1=FY26Q3 기준'},
+  ev:[
+    {tg:[{t:'시장',c:'tmk'}],w:false,oo:null,tx:'GB200 서버 납품. 마진 압박. FY26 $36B+ 가이던스.',nm:[{k:'매출',v:'$4.60B'},{k:'YoY',v:'+67%',cl:'up'}]},
+    {tg:[{t:'시장',c:'tmk'}],w:false,oo:null,tx:'FY26Q2 역대 최고 $12.7B. 블랙웰 Ultra 수주 $13B+.',nm:[{k:'매출',v:'$12.7B'},{k:'YoY',v:'+500%',cl:'up'}]},
+    {tg:[{t:'시장',c:'tmk'}],w:false,oo:null,tx:'FY26Q1 — 블랙웰 서버 초기 납품. GM 9.3%.',nm:[{k:'매출',v:'$5.0B'},{k:'YoY',v:'+8%',cl:'up'}]},
+    {tg:[{t:'시장',c:'tmk'}],w:false,oo:null,tx:'FY26Q3 $10.2B. YoY +122%. FY26 $38.9~40.4B 가이던스.',nm:[{k:'매출',v:'$10.2B'},{k:'YoY',v:'+122%',cl:'up'},{k:'EPS',v:'$0.72',cl:'up'}]},
+    {tg:[{t:'시장',c:'tmk'}],w:false,oo:null,tx:'FY26Q4 예상 $11~12.5B. FY27Q1 달력기준 실적 미발표.',nm:[{k:'FY26Q4',v:'$11~12.5B',cl:'nt'},{k:'FY26 가이던스',v:'$38.9~40.4B',cl:'up'}]},
+  ]},
+};
+
+// ── 상태 ──────────────────────────────────────────
+let T='TSLA',M='rev',curTab=0;
+
+// ── 탭/종목 이벤트 ────────────────────────────────
+document.getElementById('tabBar').addEventListener('click',e=>{
+  const b=e.target.closest('[data-idx]');if(!b)return;
+  const i=+b.dataset.idx;curTab=i;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on',t===b));
+  document.querySelectorAll('.panel').forEach((p,j)=>p.classList.toggle('on',j===i));
+  buildPanel(i);
+});
+document.getElementById('p0').addEventListener('click',e=>{
+  const b=e.target.closest('[data-m]');if(!b)return;
+  M=b.dataset.m;
+  document.querySelectorAll('#p0 .cb').forEach(c=>c.classList.toggle('on',c===b));
+  buildMain();
+});
+function onSelect(t){if(!DB[t])return;T=t;buildInfo();buildKpi();buildPanel(curTab);}
+
+// ── UI 빌더 ──────────────────────────────────────
+function buildInfo(){
+  const d=DB[T];
+  document.getElementById('sName').textContent=d.name;
+  document.getElementById('sMeta').textContent=d.meta;
+  const st=document.getElementById('sTag');st.textContent=d.sector;st.style.background=d.tagBg;st.style.color=d.tagFg;
+  document.getElementById('sModel').textContent=d.model;
+}
+function buildKpi(){
+  document.getElementById('kpiRow').innerHTML=DB[T].kpi.map(k=>`<div class="kc"><div class="kc-l">${k.l}</div><div class="kc-v ${k.sc}">${k.v}</div><div class="kc-s ${k.sc}">${k.s}</div></div>`).join('');
+}
+function buildPanel(i){
+  if(i===0)buildMain(),buildTL();
+  else if(i===1)buildSeg();
+  else if(i===2)buildCost();
+  else if(i===3)buildCF();
+  else if(i===4)buildFuture();
+  else if(i===5)buildGuid();
+}
+
+// ── TAB 0 ────────────────────────────────────────
+function getM(){
+  const d=DB[T],big=['AAPL','MSFT','AMZN','GOOGL','META','NFLX'].includes(T);
+  const fv=v=>v>=1000?(v/1000).toFixed(1):v;
+  if(M==='eps')return{data:d.eps_gaap,yoy:d.epsGYoy,guid:null};
+  if(M==='rev')return{data:d.rev.map(fv),yoy:d.revYoy,guid:d.guid.map(v=>v?fv(v):null)};
+  if(M==='eps_gaap')return{data:d.eps_gaap,yoy:d.epsGYoy,guid:null};
+  if(M==='eps_ng')return{data:d.eps_ng,yoy:d.epsNYoy,guid:null};
+  if(M==='fcf')return{data:d.fcf.map(fv),yoy:d.fcfYoy,guid:null};
+  return{data:d.opm,yoy:d.opmYoy,guid:null};
+}
+function buildMain(){
+  const d=DB[T],m=getM();
+  const cv=document.getElementById('c_main');const ctx=cv.getContext('2d');
+  const g=(c)=>{const gr=ctx.createLinearGradient(0,0,0,200);gr.addColorStop(0,c);gr.addColorStop(1,c.replace(')',',0.4)').replace('rgb','rgba'));return gr;};
+  const bc=m.yoy.map(y=>y>=20?g('rgb(34,197,94)'):y>=0?g('rgb(59,130,246)'):g('rgb(239,68,68)'));
+  const ds=[{label:'실적',type:'bar',data:m.data,backgroundColor:bc,borderRadius:6,borderSkipped:false,barPercentage:0.55,categoryPercentage:0.6,order:2,yAxisID:'y'},
+    {label:'YoY %',type:'line',data:m.yoy,borderColor:'#f59e0b',backgroundColor:'rgba(245,158,11,0.06)',borderWidth:2,fill:true,pointRadius:4,pointBackgroundColor:'#f59e0b',tension:0.35,order:1,yAxisID:'y2'}];
+  if(m.guid)ds.push({label:'가이던스',type:'line',data:m.guid,borderColor:'#e2e8f0',backgroundColor:'transparent',borderWidth:1.5,borderDash:[5,4],pointRadius:3,tension:0,order:0,yAxisID:'y'});
+  const av=m.data.filter(Boolean);const mn=Math.min(...av),mx=Math.max(...av),pad=(mx-mn)*0.15;
+  mk('c_main',{data:{labels:Q,datasets:ds},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+    plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>{if(c.dataset.label==='YoY %')return`YoY ${c.parsed.y>=0?'+':''}${c.parsed.y}%`;if(c.dataset.label==='가이던스')return`가이던스: ${c.parsed.y}`;return`${c.parsed.y}`;}}}},
+    scales:{x:{grid:{display:false},border:{display:false},ticks:{color:'#64748b',font:{size:10},maxRotation:0}},
+      y:{position:'left',min:Math.max(mn-pad,mn<0?mn*1.3:0),max:mx+pad,grid:{color:'rgba(255,255,255,0.04)'},border:{display:false},ticks:{color:'#64748b',font:{size:9},maxTicksLimit:5}},
+      y2:{position:'right',grid:{display:false},border:{display:false},ticks:{color:'#f59e0b',font:{size:9},maxTicksLimit:5,callback:v=>v+'%'}}}}});
+}
+function buildTL(){
+  const d=DB[T];
+  document.getElementById('tl').innerHTML=d.ev.map((ev,i)=>{
+    const tgs=ev.tg.map(t=>`<span class="tltag ${t.c}">${t.t}</span>`).join('');
+    const wd=ev.w?'<span class="wdot"></span>':'';
+    const nm=ev.nm.map(n=>`<div class="tl-n">${n.k} <b${n.cl?' class="'+n.cl+'"':''}>${n.v}</b></div>`).join('');
+    const oo=ev.oo?`<div class="oneoff">⚠️ ${ev.oo}</div>`:'';
+    return`<div class="tl-item"><div class="tl-q">${Q[i]}</div><div><div class="tl-tags">${tgs}${wd}</div><div class="tl-text">${ev.tx}</div><div class="tl-nums">${nm}</div>${oo}</div></div>`;
+  }).join('');
+}
+
+// ── TAB 1 ────────────────────────────────────────
+function tS2(arr){const v=arr.filter(x=>x!=null&&!isNaN(x));if(!v.length)return{};const mn=Math.min(...v),mx=Math.max(...v),pad=(mx-mn)*0.12;const rawMin=Math.floor(mn-pad);const adjMin=mn>=0?Math.max(rawMin,mx*0.3):rawMin;return{min:adjMin,max:Math.ceil(mx+pad),grid:{color:'rgba(255,255,255,0.04)'},border:{display:false},ticks:{color:'#64748b',font:{size:9},maxTicksLimit:5}};}
+function xS2(){return{grid:{display:false},border:{display:false},ticks:{color:'#64748b',font:{size:9},maxRotation:0}};}
+function buildSeg(){
+  const d=DB[T],s=d.seg,last=s.dt.map(a=>a[a.length-1]);
+  mk('c_donut',{type:'doughnut',data:{labels:s.lb,datasets:[{data:last,backgroundColor:s.cl,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,cutout:'65%',plugins:{legend:{display:false}}}});
+  document.getElementById('donutLeg').innerHTML=s.lb.map((l,i)=>`<span><span class="lsq" style="background:${s.cl[i]}"></span>${l}</span>`).join('');
+  const st=d.qtrs||Q;const totals=st.map((_,qi)=>s.dt.reduce((sum,r)=>sum+(r[qi]||0),0));
+  mk('c_seg',{type:'bar',data:{labels:Q,datasets:s.lb.map((l,i)=>({label:l,data:s.dt[i],backgroundColor:s.cl[i],borderRadius:2,borderSkipped:false,barPercentage:0.55,categoryPercentage:0.6}))},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top',labels:{color:'#64748b',font:{size:9},boxWidth:8,boxHeight:8}}},scales:{x:{stacked:true,...xS2()},y:{stacked:true,...tS2(totals)}}}});
+  mk('c_geo',{type:'bar',data:{labels:d.geo.lb,datasets:[{data:d.geo.dt,backgroundColor:['#3b82f6','#22c55e','#f59e0b','#a855f7','#ec4899'],borderRadius:5,borderSkipped:false,barPercentage:0.5}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},indexAxis:'y',scales:{x:{...tS2(d.geo.dt)},y:{...xS2()}}}});
+  // 4번째 칸 — 기업별 고유 지표
+  document.getElementById('uniqueTitle').textContent=d.unique.title;
+  document.getElementById('uniqueNote').textContent=d.unique.note;
+  if(CR['c_unique']){try{CR['c_unique'].destroy();}catch(e){}delete CR['c_unique'];}
+  const el=document.getElementById('c_unique');el.style.width='100%';el.style.height='120px';
+  const allVals=d.unique.datasets.flatMap(ds=>ds.data);
+  CR['c_unique']=new Chart(el.getContext('2d'),{
+    type:d.unique.type,
+    data:{labels:Q,datasets:d.unique.datasets.map(ds=>d.unique.type==='bar'
+      ?{label:ds.label,data:ds.data,backgroundColor:ds.color,borderRadius:4,borderSkipped:false,barPercentage:0.5,categoryPercentage:0.65}
+      :{label:ds.label,data:ds.data,borderColor:ds.color,backgroundColor:ds.color+'22',borderWidth:2,fill:true,pointRadius:4,pointBackgroundColor:ds.color,tension:0.3})},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:d.unique.datasets.length>1?{position:'top',labels:{color:'#64748b',font:{size:9},boxWidth:8,boxHeight:8}}:{display:false}},scales:{x:xS2(),y:tS2(allVals)}}});
+}
+
+// ── TAB 2 ────────────────────────────────────────
+function buildCost(){
+  const d=DB[T];
+  // 마지막 유효 인덱스 찾기 (null인 기업 대응)
+  let lastI=Q.length-1;
+  while(lastI>0&&(d.rev[lastI]==null||d.gm[lastI]==null||d.rd[lastI]==null)){lastI--;}
+  const rev=d.rev[lastI]||0;
+  const gm=d.gm[lastI]||0;
+  const cogs=Math.round(rev*(1-(gm/100)));
+  const grossP=rev-cogs,grossM=+(grossP/rev*100).toFixed(1);
+  const rdL=d.rd[lastI]||0,smL=d.sm[lastI]||0,sgaL=d.sga[lastI]||0,sbcL=d.sbc[lastI]||0;
+  const opGaap=+(d.opm[lastI]/100*rev);
+  const opNg=opGaap+sbcL;
+  const ngM=+(opNg/rev*100).toFixed(1);
+  // 비용 차트
+  mk('c_opex',{type:'line',data:{labels:Q,datasets:[{label:'R&D',data:d.rd,borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,0.08)',borderWidth:2,fill:true,pointRadius:4,pointBackgroundColor:'#3b82f6',tension:0.3},{label:'S&M',data:d.sm,borderColor:'#22c55e',backgroundColor:'rgba(34,197,94,0.08)',borderWidth:2,fill:true,pointRadius:4,pointBackgroundColor:'#22c55e',tension:0.3},{label:'SG&A',data:d.sga,borderColor:'#f59e0b',backgroundColor:'rgba(245,158,11,0.08)',borderWidth:2,fill:true,pointRadius:4,pointBackgroundColor:'#f59e0b',tension:0.3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top',labels:{color:'#64748b',font:{size:9},boxWidth:8,boxHeight:8}}},scales:{x:xS2(),y:tS2([].concat(d.rd,d.sm,d.sga).filter(function(v){return v!=null;}))}}})
+  const safe=(v,r)=>(v!=null&&r!=null&&r!=0)?+(v/r*100).toFixed(1):null;
+  const rp=d.rd.map((v,i)=>safe(v,d.rev[i])),sp=d.sm.map((v,i)=>safe(v,d.rev[i])),gp=d.sga.map((v,i)=>safe(v,d.rev[i])),bp=d.sbc.map((v,i)=>safe(v,d.rev[i]));
+  mk('c_costpct',{type:'line',data:{labels:Q,datasets:[{label:'R&D %',data:rp,borderColor:'#3b82f6',backgroundColor:'transparent',borderWidth:2,pointRadius:4,pointBackgroundColor:'#3b82f6',tension:0.3},{label:'S&M %',data:sp,borderColor:'#22c55e',backgroundColor:'transparent',borderWidth:2,pointRadius:4,pointBackgroundColor:'#22c55e',tension:0.3},{label:'SG&A %',data:gp,borderColor:'#f59e0b',backgroundColor:'transparent',borderWidth:2,pointRadius:4,pointBackgroundColor:'#f59e0b',tension:0.3},{label:'SBC %',data:bp,borderColor:'#e879f9',backgroundColor:'transparent',borderWidth:2,pointRadius:4,pointBackgroundColor:'#e879f9',tension:0.3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top',labels:{color:'#64748b',font:{size:9},boxWidth:8,boxHeight:8}}},scales:{x:xS2(),y:{...tS2([...rp,...sp,...gp,...bp]),ticks:{color:'#64748b',font:{size:9},maxTicksLimit:5,callback:v=>v+'%'}}}}});
+  mk('c_sbc',{type:'bar',data:{labels:Q,datasets:[{data:d.sbc.map(v=>(v!=null?v:null)),backgroundColor:'rgba(239,68,68,0.8)',borderRadius:5,borderSkipped:false,barPercentage:0.5,categoryPercentage:0.6}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:xS2(),y:tS2(d.sbc)}}});
+  mk('c_shares',{type:'line',data:{labels:Q,datasets:[{data:d.shares.map(v=>(v!=null?v:null)),borderColor:'#a855f7',backgroundColor:'rgba(168,85,247,0.1)',borderWidth:2,fill:true,pointRadius:4,pointBackgroundColor:'#a855f7',tension:0.3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:xS2(),y:tS2(d.shares)}}});
+  // 손익계산서
+  const rows=[{lb:'매출 (Revenue)',val:rev,t:'s',col:'#3b82f6'},{lb:'(-) 매출원가 (COGS)',val:-cogs,t:'c',col:'#ef4444'},{lb:'= 매출총이익 (Gross Profit)',val:grossP,t:'sub',col:'#22c55e',mg:`GM ${grossM}%`},{lb:'(-) R&D',val:-rdL,t:'c',col:'#f87171'},{lb:'(-) S&M',val:-smL,t:'c',col:'#fb923c'},{lb:'(-) SG&A',val:-sgaL,t:'c',col:'#facc15'},{lb:'(-) SBC (주식보상비용)',val:-sbcL,t:'c',col:'#e879f9'},{lb:'= GAAP 영업이익',val:Math.round(opGaap),t:'e',col:'#ef4444',mg:`OPM ${d.opm[lastI]}%`},{lb:'= Non-GAAP 조정 영업이익 (+SBC 제거)',val:Math.round(opNg),t:'e2',col:'#22c55e',mg:`OPM ${ngM}%`}];
+  document.getElementById('incomeStatement').innerHTML=rows.map(r=>{const abs=Math.abs(r.val);const dv=abs>=1000?'$'+(abs/1000).toFixed(1)+'B':'$'+abs+'M';const sign=r.val<0?'-':'';const bw=Math.min(abs/rev*180,180);const isM=r.t==='s'||r.t==='sub'||r.t==='e'||r.t==='e2';const bg=r.t==='e2'?'rgba(34,197,94,0.08)':isM?'rgba(255,255,255,0.02)':'';('<div class="is-row'+(isM?' is-main':'')+('" style="'+(bg?'background:'+bg:'')+'">'+'<div class="is-label" style="color:'+r.col+'">'+r.lb+'</div>'+'<div class="is-bar-wrap"><div class="is-bar" style="width:'+bw+'px;background:'+r.col+';opacity:'+(isM?1:0.7)+'"></div></div>'+'<div class="is-val" style="color:'+r.col+'">'+sign+dv+(r.mg?' <span class="is-margin">('+r.mg+')</span>':'')+"</div></div>"));}).join('');
+  // bridge section
+  // bridge vars
+  var bi=d.bridge; var bH='';
+  var gaapA=bi[0].a,ngA=bi[bi.length-1].a;
+  var fmtA=function(v){var a=Math.abs(v);return a>=1000?'$'+(a/1000).toFixed(1)+'B':'$'+a+'M';};
+  bH+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">';
+  bH+='<div style="background:#0a0d14;border:1px solid #1e2a3a;border-radius:6px;padding:10px;text-align:center"><div style="font-size:10px;color:#64748b">GAAP</div><div style="font-size:20px;font-weight:700;color:#ef4444">'+fmtA(gaapA)+'</div></div>';
+  bH+='<div style="background:#0a0d14;border:1px solid #1e2a3a;border-radius:6px;padding:10px;text-align:center"><div style="font-size:10px;color:#64748b">Non-GAAP</div><div style="font-size:20px;font-weight:700;color:#22c55e">'+fmtA(ngA)+'</div></div></div>';
+  for(var ix=0;ix<bi.length;ix++){var bx=bi[ix];var cx=bx.t==='u'?'#22c55e':(bx.t==='e'||bx.t==='e2'?'#3b82f6':'#ef4444');var fx=fmtA(bx.a);bH+='<div class="wf-row"><span class="wf-k" style="min-width:180px">'+bx.i+'</span><span class="wf-v" style="color:'+cx+'">'+fx+'</span></div>';}
+  document.getElementById('bridge').innerHTML=bH;
+}
+
+// ── TAB 3 ────────────────────────────────────────
+function buildCF(){
+  const d=DB[T];
+  // OCF, FCF, CapEx 전체에서 최대값 기준으로 단위 통일 (모두 B 또는 모두 M)
+  const allRaw=[...d.ocf,...d.fcf,...d.capex].filter(v=>v!=null);
+  const useB=Math.max(...allRaw.map(Math.abs))>=1000;
+  const cv=v=>v!=null?(useB?(v/1000):v):null;
+  const lbl=useB?'B':'M';
+  const ocfF=d.ocf.map(cv),fcfF=d.fcf.map(cv),capF=d.capex.map(cv);
+  const allCF=[...ocfF,...fcfF].filter(v=>v!=null);
+  const cfMin=Math.min(...allCF),cfMax=Math.max(...allCF),cfPad=(cfMax-cfMin)*0.15;
+  mk('c_cf',{data:{labels:Q,datasets:[{label:'영업현금흐름',type:'bar',data:ocfF,backgroundColor:'rgba(59,130,246,0.6)',borderRadius:5,borderSkipped:false,barPercentage:0.4,categoryPercentage:0.65,yAxisID:'y',order:2},{label:'FCF',type:'bar',data:fcfF,backgroundColor:fcfF.map(v=>v!=null?(v>=0?'rgba(34,197,94,0.8)':'rgba(239,68,68,0.8)'):'transparent'),borderRadius:5,borderSkipped:false,barPercentage:0.4,categoryPercentage:0.65,yAxisID:'y',order:2},{label:'CapEx',type:'line',data:capF,borderColor:'#f59e0b',backgroundColor:'rgba(245,158,11,0.06)',borderWidth:2,borderDash:[5,4],pointRadius:4,pointBackgroundColor:'#f59e0b',tension:0.3,yAxisID:'y2',fill:true,order:1}]},
+    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{position:'top',labels:{color:'#64748b',font:{size:9},boxWidth:8,boxHeight:8}},tooltip:{callbacks:{label:c=>`${c.dataset.label}: $${c.parsed.y!=null?Math.abs(c.parsed.y).toFixed(useB?1:0)+lbl:'N/A'}`}}},
+    scales:{x:xS2(),y:{position:'left',min:Math.floor(cfMin-cfPad),max:Math.ceil(cfMax+cfPad),grid:{color:'rgba(255,255,255,0.04)'},border:{display:false},ticks:{color:'#64748b',font:{size:9},maxTicksLimit:6,callback:v=>'$'+Math.abs(v).toFixed(useB?1:0)+lbl}},y2:{position:'right',...tS2(capF.filter(v=>v!=null)),ticks:{color:'#f59e0b',font:{size:9},maxTicksLimit:5,callback:v=>'$'+Math.abs(v).toFixed(useB?1:0)+lbl},grid:{display:false}}}}});
+  const fcfm=d.fcf.map((v,i)=>(v!=null&&d.rev[i]!=null&&d.rev[i]!=0)?+(v/d.rev[i]*100).toFixed(1):null);
+  mk('c_fcfm',{type:'line',data:{labels:Q,datasets:[{label:'FCF 마진',data:fcfm,borderColor:'#22c55e',backgroundColor:'rgba(34,197,94,0.1)',borderWidth:2,fill:true,pointRadius:4,pointBackgroundColor:'#22c55e',tension:0.3},{label:'20% 기준',data:Q.map(()=>20),borderColor:'#f59e0b',backgroundColor:'transparent',borderWidth:1.5,borderDash:[5,4],pointRadius:0}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top',labels:{color:'#64748b',font:{size:9},boxWidth:8,boxHeight:8}}},scales:{x:xS2(),y:{...tS2([...fcfm,20]),ticks:{color:'#64748b',font:{size:9},maxTicksLimit:5,callback:v=>v+'%'}}}}});
+  const niF=d.ni.map(cv);
+  mk('c_nivsfcf',{type:'line',data:{labels:Q,datasets:[{label:'순이익',data:niF,borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,0.08)',borderWidth:2,fill:true,pointRadius:4,pointBackgroundColor:'#3b82f6',tension:0.3},{label:'FCF',data:fcfF,borderColor:'#22c55e',backgroundColor:'rgba(34,197,94,0.08)',borderWidth:2,fill:true,pointRadius:4,pointBackgroundColor:'#22c55e',tension:0.3,borderDash:[5,4]}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top',labels:{color:'#64748b',font:{size:9},boxWidth:8,boxHeight:8}}},scales:{x:xS2(),y:tS2([...niF,...fcfF])}}});
+}
+
+// ── TAB 4 ────────────────────────────────────────
+function buildFuture(){
+  const d=DB[T];
+  document.getElementById('leadCards').innerHTML=[{l:'RPO',v:d.rpo?'$'+d.rpo+'M':'미공시',s:d.rpo?'미래 확정 매출':'해당 기업 미공시'},{l:'이연수익',v:d.def?'$'+d.def+'M':'미공시',s:d.def?'선불금':'해당 기업 미공시'},{l:'Billings',v:d.bil||'미공시',s:d.bil?'선행 신호':'해당 기업 미공시'}].map(c=>`<div class="card"><div class="sec">${c.l}</div><div style="font-size:18px;font-weight:600;font-family:var(--mono);margin:6px 0">${c.v}</div><div style="font-size:10px;color:var(--muted)">${c.s}</div></div>`).join('');
+  document.getElementById('sectMet').innerHTML=d.sect.map(m=>`<div class="sm-row"><span class="sm-k">${m.k}</span><div style="text-align:right"><span class="sm-v">${m.v}</span><div class="sm-s">${m.s} · Earnings Release 공식 발표</div></div></div>`).join('');
+}
+
+// ── TAB 5 ────────────────────────────────────────
+function buildGuid(){
+  const d=DB[T],fv=v=>v!=null&&v>=1000?(v/1000).toFixed(1):v;
+  // raw 값으로 비교, 표시만 fv 적용
+  const gd_raw=d.guid;
+  const rv_raw=d.rev;
+  const gd=gd_raw.map(v=>v!=null?+fv(v):null);
+  const rv=rv_raw.map(v=>+fv(v));
+  const cols=rv_raw.map((a,i)=>gd_raw[i]!=null?(a>=gd_raw[i]?'#22c55e':'#ef4444'):'#3b82f6');
+  mk('c_guid',{type:'bar',data:{labels:Q,datasets:[{label:'가이던스',data:gd,backgroundColor:'rgba(59,130,246,0.4)',borderRadius:5,borderSkipped:false,barPercentage:0.55,categoryPercentage:0.65},{label:'실제',data:rv,backgroundColor:cols.map(c=>{const r=parseInt(c.slice(1,3),16),g=parseInt(c.slice(3,5),16),b=parseInt(c.slice(5,7),16);return`rgba(${r},${g},${b},0.85)`;}),borderRadius:5,borderSkipped:false,barPercentage:0.55,categoryPercentage:0.65}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top',labels:{color:'#64748b',font:{size:9},boxWidth:8,boxHeight:8}}},scales:{x:xS2(),y:tS2([...gd.filter(v=>v!=null),...rv])}}});
+  document.getElementById('gdRows').innerHTML=Q.map((q,i)=>{if(gd_raw[i]==null)return`<div class="gd-row"><span class="gd-q">${q}</span><span style="font-size:10px;color:var(--muted)">가이던스 미제시</span></div>`;const p=((rv_raw[i]/gd_raw[i]-1)*100).toFixed(1),sign=p>=0?'+':'',col=p>=0?'#22c55e':'#ef4444';return`<div class="gd-row"><span class="gd-q">${q}</span><div class="gd-bw"><div class="gd-b" style="width:${Math.min(Math.abs(p)*8,100)}%;background:${col}"></div></div><span style="font-size:10px;font-family:var(--mono);color:${col};min-width:54px;text-align:right">${sign}${p}%</span></div>`;}).join('');
+  const vp=Q.map((q,i)=>gd_raw[i]!=null?+((rv_raw[i]/gd_raw[i]-1)*100).toFixed(1):null).filter(v=>v!==null);
+  if(!vp.length){document.getElementById('pbox').innerHTML='<span style="color:var(--muted)">가이던스 미제시 기업</span>';return;}
+  const above=vp.filter(v=>v>=0).length,avg=(vp.reduce((s,v)=>s+v,0)/vp.length).toFixed(1);
+  let pt,pc;
+  if(above>=vp.length*.75){pt=`보수적 패턴 — 실제 실적이 말보다 좋은 경영진 (${vp.length}분기 중 ${above}회 상회, 평균 ${avg>0?'+':''}${avg}%)`;pc='#22c55e';}
+  else if(above<=vp.length*.25){pt=`공격적 패턴 — 가이던스 신뢰도 낮음 주의 (${vp.length}분기 중 ${above}회만 상회)`;pc='#ef4444';}
+  else{pt=`혼합 패턴 — 가이던스 신뢰도 중간 (${vp.length}분기 중 ${above}회 상회)`;pc='#f59e0b';}
+  document.getElementById('pbox').innerHTML=`<span style="color:${pc}">📊 ${pt}</span>`;
+}
+
+// ── 초기 실행 ────────────────────────────────────
+buildInfo();buildKpi();buildPanel(0);
+</script>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0f1117;--card:#1a1f2e;--border:#1e2a3a;--text:#e2e8f0;--muted:#64748b;--accent:#3b82f6;--up:#22c55e;--dn:#ef4444;--warn:#f59e0b;--font:'IBM Plex Sans',sans-serif;--mono:'IBM Plex Mono',monospace}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+::-webkit-scrollbar{width:0;height:0}
+*{scrollbar-width:none;-ms-overflow-style:none}
+.vs{max-width:960px;margin:0 auto;padding:16px}
+.top-bar{display:flex;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap}
+.logo{font-family:var(--mono);font-size:17px;font-weight:500;color:var(--accent);letter-spacing:.05em}
+.select-wrap{position:relative;flex:1;max-width:300px}
+.select-wrap select{width:100%;padding:8px 32px 8px 12px;background:#1a1f2e;border:1px solid var(--border);color:var(--text);font-size:13px;font-family:var(--font);border-radius:6px;cursor:pointer;outline:none;appearance:none;-webkit-appearance:none}
+.select-wrap::after{content:'▾';position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--muted);pointer-events:none}
+.stock-info{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.stock-name{font-size:18px;font-weight:600}
+.stock-meta{font-size:11px;color:var(--muted);font-family:var(--mono)}
+.tag{font-size:9px;padding:3px 9px;border-radius:20px;font-weight:500}
+.kpi-row{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;margin-bottom:12px}
+.kc{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:9px 11px}
+.kc-l{font-size:9px;color:var(--muted);margin-bottom:3px;font-family:var(--mono)}
+.kc-v{font-size:15px;font-weight:600;font-family:var(--mono)}
+.kc-s{font-size:9px;margin-top:2px;font-family:var(--mono)}
+.up{color:var(--up)}.dn{color:var(--dn)}.nt{color:var(--warn)}
+.tabs{display:flex;border-bottom:1px solid var(--border);margin-bottom:14px;overflow-x:auto;gap:0}
+.tab{font-size:11px;padding:9px 16px;border:none;background:transparent;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;font-family:var(--font);white-space:nowrap;transition:all .15s}
+.tab:hover{color:var(--text)}
+.tab.on{color:var(--accent);border-bottom-color:var(--accent);font-weight:500}
+.panel{display:none}.panel.on{display:block}
+.sec{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;font-family:var(--mono)}
+.cbrow{display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap}
+.cb{font-size:10px;padding:4px 11px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;font-family:var(--font);transition:all .15s}
+.cb:hover{color:var(--text)}.cb.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.leg{display:flex;gap:14px;margin-bottom:6px;flex-wrap:wrap}
+.leg span{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--muted)}
+.lsq{width:8px;height:8px;border-radius:2px;flex-shrink:0}
+.lcl{width:16px;height:2px;flex-shrink:0}
+.cw{position:relative;width:100%}
+.h200{height:200px}.h160{height:160px}.h140{height:140px}.h120{height:120px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:11px 13px}
+.div{height:1px;background:var(--border);margin:12px 0}
+.tl-item{display:grid;grid-template-columns:56px 1fr;gap:8px;padding:9px 0;border-bottom:1px solid var(--border)}
+.tl-item:last-child{border-bottom:none}
+.tl-q{font-size:10px;color:var(--muted);font-family:var(--mono);padding-top:2px}
+.tl-tags{display:flex;gap:4px;margin-bottom:4px;align-items:center;flex-wrap:wrap}
+.tltag{font-size:9px;padding:2px 7px;border-radius:20px;font-weight:500}
+.tc{background:#1e3a5f;color:#7dd3fc}.tp{background:#422006;color:#fcd34d}
+.tmk{background:#14532d;color:#86efac}.to{background:#1e293b;color:#94a3b8}
+.wdot{width:6px;height:6px;border-radius:50%;background:var(--dn);flex-shrink:0}
+.tl-text{font-size:11px;color:#94a3b8;line-height:1.6;margin-bottom:4px}
+.tl-nums{display:flex;gap:10px;flex-wrap:wrap}
+.tl-n{font-size:10px;color:var(--muted);font-family:var(--mono)}
+.tl-n b{color:var(--text);font-weight:500}
+.tl-n .up{color:var(--up)}.tl-n .dn{color:var(--dn)}.tl-n .nt{color:var(--warn)}
+.oneoff{background:#2d1a06;border:1px solid #92400e;border-radius:4px;padding:5px 9px;font-size:9px;color:#fcd34d;margin-top:5px}
+.wf-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:11px}
+.wf-row:last-child{border-bottom:none;font-weight:600}
+.wf-k{color:#94a3b8;display:flex;align-items:center;gap:8px}
+.wf-bar{height:6px;border-radius:3px;min-width:4px}
+.wf-v{font-family:var(--mono);font-weight:500}
+.is-row{display:flex;align-items:center;gap:10px;padding:5px 0;border-bottom:1px solid var(--border)}
+.is-row:last-child{border-bottom:none}
+.is-main{background:rgba(255,255,255,0.02);border-radius:4px;padding:6px 4px;margin:2px 0}
+.is-label{font-size:11px;color:#94a3b8;min-width:220px}
+.is-bar-wrap{flex:1}
+.is-bar{height:8px;border-radius:4px}
+.is-val{font-size:11px;font-family:var(--mono);font-weight:500;min-width:120px;text-align:right}
+.is-margin{font-size:9px;color:var(--muted);font-weight:400}
+.sm-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:11px}
+.sm-row:last-child{border-bottom:none}
+.sm-k{color:#94a3b8}.sm-v{font-family:var(--mono);font-weight:500}.sm-s{font-size:9px;color:var(--muted)}
+.gd-row{display:flex;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:11px;gap:8px}
+.gd-row:last-child{border-bottom:none}
+.gd-q{font-family:var(--mono);color:var(--muted);font-size:10px;min-width:56px}
+.gd-bw{flex:1;background:#0a0d14;border-radius:3px;height:5px;overflow:hidden}
+.gd-b{height:100%;border-radius:3px}
+.pbox{border:1px solid var(--border);border-radius:6px;padding:11px 13px;margin-top:10px;font-size:11px;font-weight:500}
+.gloss{background:#0a0d14;border:1px solid var(--border);border-radius:8px;padding:13px 15px;margin-top:16px}
+.gloss-t{font-size:10px;color:var(--accent);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px;font-family:var(--mono)}
+.gloss-g{display:grid;grid-template-columns:1fr 1fr;gap:0 20px}
+.gl{padding:5px 0;border-bottom:1px solid #1e2a3a}
+.gl:nth-last-child(-n+2){border-bottom:none}
+.gl-t{font-size:10px;font-weight:600;color:var(--accent);font-family:var(--mono)}
+.gl-d{font-size:10px;color:#94a3b8;line-height:1.5;margin-top:1px}
+.unique-card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:11px 13px}
+.unique-chart{width:100%;height:120px;position:relative}
+</style>
+</head>
+<body>
+<div class="vs">
+<div class="top-bar">
+  <div class="logo">ValueScope</div>
+  <div class="select-wrap">
+    <select id="sel" onchange="onSelect(this.value)">
+      <option value="TSLA">테슬라 (TSLA)</option>
+      <option value="NVDA">엔비디아 (NVDA)</option>
+      <option value="AAPL">애플 (AAPL)</option>
+      <option value="PLTR">팔란티어 (PLTR)</option>
+      <option value="MSFT">마이크로소프트 (MSFT)</option>
+      <option value="GOOGL">알파벳 구글 (GOOGL)</option>
+      <option value="META">메타 플랫폼스 (META)</option>
+      <option value="AMZN">아마존 (AMZN)</option>
+      <option value="IONQ">아이온큐 (IONQ)</option>
+      <option value="AMD">AMD</option>
+      <option value="NFLX">넷플릭스 (NFLX)</option>
+      <option value="INTC">인텔 (INTC)</option>
+      <option value="SNOW">스노우플레이크 (SNOW)</option>
+      <option value="SHOP">쇼피파이 (SHOP)</option>
+      <option value="SMCI">슈퍼마이크로 (SMCI)</option>
+    </select>
+  </div>
+</div>
+<div class="stock-info">
+  <span class="stock-name" id="sName"></span>
+  <span class="stock-meta" id="sMeta"></span>
+  <span class="tag" id="sTag"></span>
+  <span class="tag" id="sModel" style="background:#1e293b;color:#94a3b8"></span>
+</div>
+<div class="kpi-row" id="kpiRow"></div>
+<div class="tabs" id="tabBar">
+  <button class="tab on" data-idx="0">① 개요</button>
+  <button class="tab" data-idx="1">② 매출 해부</button>
+  <button class="tab" data-idx="2">③ 비용·희석</button>
+  <button class="tab" data-idx="3">④ 현금흐름</button>
+  <button class="tab" data-idx="4">⑤ 미래·섹터</button>
+  <button class="tab" data-idx="5">⑥ 경영진 신뢰도</button>
+</div>
+
+<!-- TAB 0 -->
+<div class="panel on" id="p0">
+  <div class="cbrow">
+    <button class="cb on" data-m="rev">매출</button>
+    <button class="cb" data-m="eps_gaap">EPS GAAP</button>
+    <button class="cb" data-m="eps_ng">EPS Non-GAAP</button>
+    <button class="cb" data-m="fcf">FCF</button>
+    <button class="cb" data-m="eps">EPS</button>
+    <button class="cb" data-m="opm">영업이익률</button>
+  </div>
+  <div class="leg">
+    <span><span class="lsq" style="background:#22c55e"></span>YoY +20%↑ 강한 성장</span>
+    <span><span class="lsq" style="background:#3b82f6"></span>YoY 0~20% 성장</span>
+    <span><span class="lsq" style="background:#ef4444"></span>YoY 마이너스 역성장</span>
+    <span><span class="lcl" style="background:#f59e0b"></span>YoY 성장률 (우측 축)</span>
+    <span><span class="lcl" style="background:#e2e8f0"></span>가이던스 (점선)</span>
+  </div>
+  <div class="cw h200"><canvas id="c_main"></canvas></div>
+  <div class="div"></div>
+  <div class="sec">분기별 사건 맥락 타임라인</div>
+  <div id="tl"></div>
+  <div class="gloss">
+    <div class="gloss-t">📖 이 탭 용어 설명</div>
+    <div class="gloss-g">
+      <div class="gl"><div class="gl-t">YoY (Year over Year)</div><div class="gl-d">전년 동기 대비 성장률. 계절성을 제거하고 실질 성장을 보여줘요.</div></div>
+      <div class="gl"><div class="gl-t">EPS GAAP (주당순이익 공식)</div><div class="gl-d">미국 공식 회계 기준으로 계산한 주당순이익. SBC·일회성 비용이 모두 포함된 공식 수치예요.</div></div>
+      <div class="gl"><div class="gl-t">EPS Non-GAAP (주당순이익 조정)</div><div class="gl-d">SBC·일회성 비용 등을 제거한 조정 주당순이익. 기업이 "우리 실제 수익력은 이만큼"이라고 주장하는 수치예요. GAAP보다 항상 높게 나와요.</div></div>
+      <div class="gl"><div class="gl-t">FCF (Free Cash Flow)</div><div class="gl-d">잉여현금흐름. 영업으로 번 돈에서 필수 투자비를 뺀 진짜 자유 현금이에요.</div></div>
+      <div class="gl"><div class="gl-t">OPM (영업이익률)</div><div class="gl-d">매출 대비 영업이익 비율. 본업에서 얼마나 효율적으로 돈을 버는지 보여줘요.</div></div>
+      <div class="gl"><div class="gl-t">가이던스 (Guidance)</div><div class="gl-d">경영진이 다음 분기에 달성할 것으로 예상한다고 공식 발표하는 목표 수치예요.</div></div>
+      <div class="gl"><div class="gl-t">일회성 비용/이익</div><div class="gl-d">이번 분기에만 특별히 발생한 비용이나 이익. 다음 분기엔 없을 항목이에요. ⚠️ 표시로 구분해요.</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- TAB 1 -->
+<div class="panel" id="p1">
+  <div class="g2">
+    <div class="card"><div class="sec">부문별 매출 비중 (최근 분기)</div><div class="cw h160"><canvas id="c_donut"></canvas></div><div class="leg" id="donutLeg" style="margin-top:6px"></div></div>
+    <div class="card"><div class="sec">부문별 매출 추이 (분기별)</div><div class="cw h160"><canvas id="c_seg"></canvas></div></div>
+  </div>
+  <div class="div"></div>
+  <div class="g2">
+    <div class="card"><div class="sec">지역별 매출 (최근 분기)</div><div class="cw h120"><canvas id="c_geo"></canvas></div></div>
+    <div class="unique-card"><div class="sec" id="uniqueTitle">기업 고유 지표</div><div class="unique-chart"><canvas id="c_unique"></canvas></div><div id="uniqueNote" style="font-size:9px;color:var(--muted);margin-top:4px"></div></div>
+  </div>
+  <div class="gloss">
+    <div class="gloss-t">📖 이 탭 용어 설명</div>
+    <div class="gloss-g">
+      <div class="gl"><div class="gl-t">부문별 매출 (Revenue by Segment)</div><div class="gl-d">기업의 사업 영역별로 나눈 매출. 어느 사업이 진짜 돈을 버는지 파악할 수 있어요.</div></div>
+      <div class="gl"><div class="gl-t">지역별 매출 (Revenue by Geography)</div><div class="gl-d">어느 나라·지역에서 매출이 나오는지. 글로벌 확장세와 환율 착시를 구분할 수 있어요.</div></div>
+      <div class="gl"><div class="gl-t">구독/반복 매출 (Recurring Revenue)</div><div class="gl-d">매달 꼬박꼬박 들어오는 안정적인 수익. 비중이 높을수록 미래 매출 예측이 쉬워요.</div></div>
+      <div class="gl"><div class="gl-t">일회성 매출 (Non-recurring Revenue)</div><div class="gl-d">특정 프로젝트로 한 번만 발생하는 수익. 다음 분기에는 없을 수도 있어요.</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- TAB 2 -->
+<div class="panel" id="p2">
+  <div class="g2" style="margin-bottom:8px">
+    <div class="card"><div class="sec">세부 영업비용 추이 (금액)</div><div class="cw h140"><canvas id="c_opex"></canvas></div></div>
+    <div class="card"><div class="sec">매출 대비 비용 비중 (%)</div><div class="cw h140"><canvas id="c_costpct"></canvas></div></div>
+  </div>
+  <div class="g2" style="margin-bottom:8px">
+    <div class="card"><div class="sec">SBC (주식보상비용) 추이</div><div class="cw h120"><canvas id="c_sbc"></canvas></div></div>
+    <div class="card"><div class="sec">주주 희석 — 발행주식수 변화</div><div class="cw h120"><canvas id="c_shares"></canvas></div></div>
+  </div>
+  <div class="div"></div>
+  <div class="card" style="margin-bottom:8px">
+    <div class="sec">손익계산서 분해 (최근 분기) — 매출에서 각 비용이 빠지는 과정</div>
+    <div id="incomeStatement"></div>
+  </div>
+  <div class="card" style="border-color:#3b82f6">
+    <div class="sec" style="color:#3b82f6">⭐ GAAP → Non-GAAP 브릿지 — 기업이 실적을 어떻게 포장하는가</div>
+    <div id="bridge" style="margin-top:6px"></div>
+    <div style="margin-top:10px;padding:8px 10px;background:#0a0d14;border-radius:6px;font-size:10px;color:#64748b;line-height:1.6">💡 기업들은 SBC·일회성 비용 등을 빼고 <span style="color:#22c55e;font-weight:500">Non-GAAP 이익</span>을 발표해요. 위 항목들이 얼마나 제거됐는지 확인하면 기업이 실적을 어떻게 포장하는지 알 수 있어요.</div>
+  </div>
+  <div class="gloss">
+    <div class="gloss-t">📖 이 탭 용어 설명</div>
+    <div class="gloss-g">
+      <div class="gl"><div class="gl-t">R&D (연구개발비)</div><div class="gl-d">미래 성장을 위한 투자 규모예요. 매출 대비 비중이 높을수록 미래에 적극 투자하는 기업이에요.</div></div>
+      <div class="gl"><div class="gl-t">S&M (영업·마케팅비)</div><div class="gl-d">고객 1명을 확보하는 데 얼마나 쓰는지 파악할 수 있어요. 효율적일수록 매출 성장이 빨라요.</div></div>
+      <div class="gl"><div class="gl-t">SG&A (판매관리비)</div><div class="gl-d">회사를 유지하는 기본 비용. 임원 급여, 임대료, 법무비 등이 포함돼요.</div></div>
+      <div class="gl"><div class="gl-t">GAAP vs Non-GAAP</div><div class="gl-d">GAAP은 공식 회계 기준 이익, Non-GAAP은 SBC·일회성 비용을 제거한 조정 이익이에요.</div></div>
+      <div class="gl"><div class="gl-t">SBC (주식보상비용)</div><div class="gl-d">직원에게 주는 주식 보상. 현금은 안 나가지만 기존 주주의 지분을 희석시켜요.</div></div>
+      <div class="gl"><div class="gl-t">주주 희석 (Dilution)</div><div class="gl-d">SBC로 주식수가 늘면 같은 이익을 더 많은 주식이 나눠 가져요. 주당 가치가 줄어드는 효과예요.</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- TAB 3 -->
+<div class="panel" id="p3">
+  <div class="card" style="margin-bottom:8px">
+    <div class="sec">FCF / 영업현금흐름 (좌측) vs CapEx (우측 축·점선)</div>
+    <div class="leg">
+      <span><span class="lsq" style="background:#3b82f6"></span>영업현금흐름 (좌측)</span>
+      <span><span class="lsq" style="background:#22c55e"></span>FCF (좌측)</span>
+      <span><span class="lcl" style="background:#f59e0b"></span>CapEx 점선 (우측 축)</span>
+    </div>
+    <div class="cw h140"><canvas id="c_cf"></canvas></div>
+  </div>
+  <div class="g2">
+    <div class="card"><div class="sec">FCF 마진 추이 (점선: 20% 기준)</div><div class="cw h120"><canvas id="c_fcfm"></canvas></div></div>
+    <div class="card"><div class="sec">순이익 vs FCF 비교</div><div class="cw h120"><canvas id="c_nivsfcf"></canvas></div></div>
+  </div>
+  <div class="gloss">
+    <div class="gloss-t">📖 이 탭 용어 설명</div>
+    <div class="gloss-g">
+      <div class="gl"><div class="gl-t">FCF (잉여현금흐름)</div><div class="gl-d">영업으로 번 돈에서 필수 설비 투자비를 뺀, 진짜 마음대로 쓸 수 있는 돈이에요.</div></div>
+      <div class="gl"><div class="gl-t">영업현금흐름</div><div class="gl-d">본업에서 실제로 들어온 현금. 순이익은 회계 숫자지만 이건 진짜 통장에 꽂힌 돈이에요.</div></div>
+      <div class="gl"><div class="gl-t">CapEx (자본적 지출)</div><div class="gl-d">공장·서버·장비 등에 쓰는 투자 비용. 성장 투자인지 낡은 설비 교체인지 구분이 중요해요.</div></div>
+      <div class="gl"><div class="gl-t">FCF 마진</div><div class="gl-d">매출 대비 FCF 비율. 20% 이상이면 스스로 자생 가능한 기업으로 봐요.</div></div>
+      <div class="gl"><div class="gl-t">순이익 vs FCF 괴리</div><div class="gl-d">순이익은 좋은데 FCF가 낮으면 회계상 이익이지만 실제 현금은 없다는 뜻이에요.</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- TAB 4 -->
+<div class="panel" id="p4">
+  <div class="g3" id="leadCards" style="margin-bottom:8px"></div>
+  <div class="div"></div>
+  <div class="card">
+    <div class="sec">섹터 특수 지표 <span style="font-size:9px;color:var(--muted);margin-left:6px">※ 각 기업 Earnings Release 공식 발표 기준</span></div>
+    <div id="sectMet"></div>
+  </div>
+  <div class="gloss">
+    <div class="gloss-t">📖 이 탭 용어 설명</div>
+    <div class="gloss-g">
+      <div class="gl"><div class="gl-t">RPO (잔여수행의무)</div><div class="gl-d">계약은 맺었지만 아직 매출로 인식 안 된 미래 확정 금액. 클수록 다음 분기가 보장된 것이에요.</div></div>
+      <div class="gl"><div class="gl-t">Billings (청구액)</div><div class="gl-d">이번 분기에 고객에게 청구서를 보낸 금액. 매출보다 먼저 움직이는 선행 신호예요.</div></div>
+      <div class="gl"><div class="gl-t">이연수익 (Deferred Revenue)</div><div class="gl-d">이미 돈을 받았지만 서비스를 아직 다 제공 안 해 매출로 인식 못 한 선불금이에요.</div></div>
+      <div class="gl"><div class="gl-t">NDR (순매출유지율)</div><div class="gl-d">기존 고객이 작년보다 올해 얼마나 더 쓰는지. 100% 초과면 기존 고객이 스스로 지출을 늘리는 것이에요.</div></div>
+      <div class="gl"><div class="gl-t">Rule of 40</div><div class="gl-d">매출 성장률 + 영업이익률의 합이 40 이상이면 균형 잡힌 성장으로 봐요.</div></div>
+      <div class="gl"><div class="gl-t">DAU / MAU</div><div class="gl-d">일간/월간 활성 사용자. 하루 또는 한 달 동안 실제로 서비스를 사용한 사람 수예요.</div></div>
+      <div class="gl"><div class="gl-t">GMV (총상품거래액)</div><div class="gl-d">플랫폼에서 거래된 전체 금액. 플랫폼 성장 규모를 보는 핵심 지표예요.</div></div>
+      <div class="gl"><div class="gl-t">ARPU (유저당 평균 매출)</div><div class="gl-d">사용자 1명이 얼마의 매출을 발생시키는지 보여줘요.</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- TAB 5 -->
+<div class="panel" id="p5">
+  <div class="card" style="margin-bottom:8px">
+    <div class="sec">가이던스 vs 실제 달성 히스토리</div>
+    <div class="leg">
+      <span><span class="lsq" style="background:#3b82f6"></span>가이던스 경영진 예고</span>
+      <span><span class="lsq" style="background:#22c55e"></span>실제 달성 상회</span>
+      <span><span class="lsq" style="background:#ef4444"></span>실제 달성 하회</span>
+    </div>
+    <div class="cw h160"><canvas id="c_guid"></canvas></div>
+  </div>
+  <div class="sec">분기별 달성률</div>
+  <div id="gdRows"></div>
+  <div class="pbox" id="pbox"></div>
+  <div class="gloss">
+    <div class="gloss-t">📖 이 탭 용어 설명</div>
+    <div class="gloss-g">
+      <div class="gl"><div class="gl-t">가이던스 (Guidance)</div><div class="gl-d">경영진이 다음 분기에 달성할 것으로 예상한다고 공식 발표하는 목표 수치예요.</div></div>
+      <div class="gl"><div class="gl-t">어닝 서프라이즈</div><div class="gl-d">실제 실적이 가이던스를 얼마나 초과했는지. 플러스면 예상보다 잘한 것이에요.</div></div>
+      <div class="gl"><div class="gl-t">보수적 가이던스 패턴</div><div class="gl-d">가이던스를 낮게 잡고 실제로는 더 잘하는 패턴. 믿을 수 있는 경영진의 신호예요.</div></div>
+      <div class="gl"><div class="gl-t">공격적 가이던스 패턴</div><div class="gl-d">가이던스를 높게 잡고 실제로는 못 미치는 패턴. 말보다 실적이 낮은 경영진이에요.</div></div>
+    </div>
+  </div>
+</div>
+</div>
+
+</body>
+</html>
